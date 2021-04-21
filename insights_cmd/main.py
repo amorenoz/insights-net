@@ -7,6 +7,7 @@ from insights_cmd.command import COMMANDS, Control, init_client
 
 from insights_cmd.commands.info import info
 from insights_cmd.commands.host import host
+from insights_cmd.commands.net import find_ip
 
 class Context(object):
     def __init__(self, verbose=False):
@@ -55,6 +56,7 @@ def start(obj, paths, plugins, config):
 maincli.add_command(start)
 maincli.add_command(info)
 maincli.add_command(host)
+maincli.add_command(find_ip)
 
 def main():
     init_client()
