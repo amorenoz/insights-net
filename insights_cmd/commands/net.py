@@ -1,5 +1,6 @@
 import click
 import re
+from functools import partial
 
 from insights.contrib import ipaddress
 
@@ -54,17 +55,8 @@ class IP(Command):
         for match, route in rt.items():
             if match == "default":
                 continue
-            got_match = False
-            try:
-                net = ipaddress.ip_network(match)
-                if addr in net:
-                    got_match = True
-            except ValueError:
-                ip = ipaddress.ip_address(match)
-                if addr == ip:
-                    got_match = True
 
-            if got_match:
+            if self._compare_ip_or_net(addr, match):
                 matches.append({
                     'match': match,
                     'routes': [r.__dict__ for r in route]
@@ -93,6 +85,91 @@ class IP(Command):
                 matches.extend(hosts)
 
         return matches
+
+    @backend
+    def find_in_iptables(self, ip):
+        addr = ipaddress.ip_address(ip)
+        matches={}
+        for config in ["IPTabPermanent", "IP6TabPermanent", "IPTables", "IP6Tables"]:
+            data_source = getattr(self._data, config, None)
+            if data_source is not None:
+                match = self.find_in_iptables_common(addr, data_source)
+                matches[config]=match
+
+        return matches
+
+    def find_in_iptables_common(self, addr, ipt):
+        """
+        Only filter and nat tables supported
+        ip: IPAddress object
+        ipt: insights.parser.IPTAblesConfiguration
+        """
+        matches = []
+
+        tables = ["filter", "nat"]
+        for table in tables:
+            for chain, rules in ipt.table_chains(table).items():
+                for rule in rules:
+                    if self.find_in_rule(addr, rule['rule']):
+                        matches.append({
+                            "chain": chain,
+                            "rule": rule,
+                        })
+        return matches
+
+    def find_in_rule(self, addr, rule):
+        """
+        Looks for the ipAddres object (IPv4Address or IPv6Address) in the iptables
+        rule string.
+        Current rule matching supports:
+            -s {IP}[/mask]
+            -d {IP}[/mask]
+            --to-destination {IP}[:{port}[-{port}]]
+            --to-source {IP}[:{port}[-{port}]]
+        """
+        matches = [{
+            "regexp": re.compile('-s\s([\w.:/]*)\s'),
+            },{
+            "regexp": re.compile('-d\s([\w.:/]*)\s'),
+            },{
+            "regexp": re.compile('--to-source\s([\w.:]*)\s'),
+            },{
+            "regexp": re.compile('--to-destination\s([\w.:]*)\s'),
+            },{
+            "regexp": re.compile('--to-source\s([\w.:]*):\d+\s'),
+            },{
+            "regexp": re.compile('--to-destination\s([\w.:]*):\d+\s'),
+            },{
+            "regexp": re.compile('--to-source\s([\w.:]*):\d+-\d+\s'),
+            },{
+            "regexp": re.compile('--to-destination\s([\w.:]*):\d+-\d+\s'),
+            }
+        ]
+
+        for match in matches:
+            result = match.get('regexp').search(rule)
+            if result:
+                if self._compare_ip_or_net(addr,result.group(1)):
+                    return True
+
+        return False
+
+    def _compare_ip_or_net(self, addr, match):
+        """
+        Tries to compare match string with an ipaddress object
+        The match string can be an IP address or a subnet
+        """
+        try:
+            net = ipaddress.ip_network(match)
+            if addr in net:
+                return True
+        except ValueError:
+            ip = ipaddress.ip_address(match)
+            if addr == ip:
+                return True
+
+        return False
+
 
 
 @click.command(name='find-ip')
@@ -158,3 +235,16 @@ def find_ip(ctx, address):
             print("    - Hostname: {}".format(host))
         print("")
 
+    ipt_matches = cmd.find_in_iptables(address)
+    if ipt_matches:
+        for config, matches in ipt_matches.items():
+            if len(matches) > 0:
+                print("{} Matches".format(config))
+                print("-"*(len(config) + 8))
+                for match in matches:
+                    rule = match.get('rule')
+                    print("    - Chain: {}".format(match.get('chain')))
+                    print("      Table: {}".format(rule.get('table')))
+                    print("      Rule: {}".format(rule.get('rule')))
+                print("")
+        print("")
