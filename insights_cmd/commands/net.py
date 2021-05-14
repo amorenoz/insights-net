@@ -19,9 +19,15 @@ class IP(Command):
 
     @backend
     def find_in_host(self, ip):
+        ipdata = self._data.IpAddr
+        return self._find_in_addrs(ip, ipdata)
+
+    def _find_in_addrs(self, ip, ipdata):
+        """
+        Finds the ip address in the IpAddr parser
+        """
         matches = []
         addr = ipaddress.ip_address(ip)
-        ipdata = self._data.IpAddr
         if not ipdata:
             return matches
 
@@ -32,26 +38,16 @@ class IP(Command):
         return matches
 
     @backend
-    def find_in_neigh(self, ip):
-        matches = []
-        addr = ipaddress.ip_address(ip)
-        neighdata = self._data.IpNeighShow
-        if not neighdata:
-            return matches
-
-        for neigh, data in neighdata.data.items():
-            if data.get('addr') == addr:
-                append_data = data.copy()
-                append_data['addr'] = neigh
-                matches.append(append_data)
-
-        return matches
-
-    @backend
     def find_in_routes(self, ip):
-        matches = []
-        addr = ipaddress.ip_address(ip)
         rt = self._data.RouteDevices.data
+        return self._find_in_routes(ip, rt)
+
+    def _find_in_routes(self, ip, rt):
+        """
+        Finds the ip address in the RouteDevices parser
+        """
+        addr = ipaddress.ip_address(ip)
+        matches = []
         if not rt:
             return matches
 
@@ -70,6 +66,22 @@ class IP(Command):
                 'match': 'default',
                 'routes': [r.__dict__ for r in rt.get('default')]
             })
+
+        return matches
+
+    @backend
+    def find_in_neigh(self, ip):
+        matches = []
+        addr = ipaddress.ip_address(ip)
+        neighdata = self._data.IpNeighShow
+        if not neighdata:
+            return matches
+
+        for neigh, data in neighdata.data.items():
+            if data.get('addr') == addr:
+                append_data = data.copy()
+                append_data['addr'] = neigh
+                matches.append(append_data)
 
         return matches
 
@@ -221,6 +233,44 @@ class IP(Command):
                        ns)),
         }
 
+    @backend
+    def find_in_ofctl(self, ip):
+        """
+        Finds in plugin.ofctl dumps
+        """
+        addr = ipaddress.ip_address(ip)
+        if 'OVSOfctlFlows' not in self._data:
+            return
+
+        ofctls = self._data.OVSOfctlFlows
+
+        result = {}
+        for ofctl in ofctls:
+            flows = []
+            for flow in ofctl.flow_dumps:
+                for match, value in flow.get('match').items():
+                    # TODO: search on match fields that we know there might be
+                    # IP addresses
+                    try:
+                        if self._compare_ip_or_net(addr, value):
+                            flows.append(flow)
+                    except ValueError:
+                        pass
+
+                for action in flow.get('actions'):
+                    # TODO: search on actions params that we know there might be
+                    # IP addresses
+                    try:
+                        if self._compare_ip_or_net(addr, action.get('params')):
+                            flows.append(flow)
+                    except ValueError:
+                        pass
+
+            if flows:
+                result[ofctl.bridge_name] = flows
+
+        return result
+
 
 @click.command(name='find-ip')
 @click.argument("address", required=True, nargs=1)
@@ -308,3 +358,31 @@ def find_ip(ctx, address):
                 print("Netstat {} Address Matches".format(where))
                 print("-" * (24 + len(where)))
                 print(tabulate(matches, headers='keys'))
+
+    ofctl_matches = cmd.find_in_ofctl(address)
+    if ofctl_matches:
+        for bridge in ofctl_matches.keys():
+            flows = ofctl_matches.get(bridge)
+            if flows:
+                print("")
+                print("Ofproto flow Matches on bridge {}".format(bridge))
+                print("-" * (31 + len(bridge)))
+                print("")
+
+                drops = list(
+                    filter(lambda x : {'action': 'drop'} in x['actions'], flows))
+
+                if drops:
+                    print("DROPS:")
+                    print_ofproto_flows(drops)
+
+                print("ALL FLOWS:")
+                print_ofproto_flows(flows)
+
+def print_ofproto_flows(flows):
+    for table in set([flow['match'].get('table') for flow in flows]):
+        print("   * Table {}".format(table))
+        for flow in filter(
+                lambda f: f['match'].get('table') == table, flows):
+            print("     {}".format(flow.get('raw')))
+    print("")
