@@ -1,5 +1,7 @@
 import click
 import re
+from tabulate import tabulate
+
 from functools import partial
 
 from insights.contrib import ipaddress
@@ -126,6 +128,8 @@ class IP(Command):
             -d {IP}[/mask]
             --to-destination {IP}[:{port}[-{port}]]
             --to-source {IP}[:{port}[-{port}]]
+
+        Maybe this functionality could go in the nftables parser?
         """
         matches = [{
             "regexp": re.compile('-s\s([\w.:/]*)\s'),
@@ -169,6 +173,46 @@ class IP(Command):
                 return True
 
         return False
+
+    @backend
+    def find_in_netstat(self, ip):
+        """
+        Returns a dict keyed by Local or Foreign dependin on what column the match
+        was made, e.g:
+            {
+            "Local": [{'Proto': 'tcp',
+ 	    				'Recv-Q': '0',
+ 	    				'Send-Q': '0',
+ 	    				'Local Address': '127.0.0.1:6633',
+ 	    				'Foreign Address': '0.0.0.0:*',
+ 	    				'State': 'LISTEN',
+ 	    				'User': '42435',
+ 	    				'Inode': '368485',
+ 	    				'PID/Program name': '61707/openvswitch-a',
+ 	    				'Timer': 'off (0.00/0/0)',
+ 	    				'PID': '61707',
+ 	    				'Program name': 'openvswitch-a',
+ 	    				'Local IP': '127.0.0.1',
+ 	    				'Port': '6633'},...],
+	    	"Foreign":...
+            }
+        """
+        addr = ipaddress.ip_address(ip)
+        ipcons = 'Active Internet connections (servers and established)'
+        ns = self._data.Netstat.datalist[ipcons]
+        def compare_ip_port(addr, ip_port):
+            """
+            compares addr (IPAddress) with the ipport string {IP}:{Port}
+            """
+            ip, _ , port = ip_port.rpartition(':')
+            return addr == ipaddress.ip_address(ip)
+
+        return {
+            'Local': list(filter(
+                lambda r: compare_ip_port(addr, r['Local Address']), ns)),
+            'Foreign': list(filter(
+                lambda r: compare_ip_port(addr, r['Foreign Address']), ns)),
+		}
 
 
 
@@ -248,3 +292,13 @@ def find_ip(ctx, address):
                     print("      Rule: {}".format(rule.get('rule')))
                 print("")
         print("")
+
+    ns_matches = cmd.find_in_netstat(address)
+    if ns_matches:
+        for where in ['Local', 'Foreign']:
+            matches = ns_matches.get(where)
+            if matches:
+                print("")
+                print("Netstat {} Address Matches".format(where))
+                print("-"*(24+len(where)))
+                print(tabulate(matches, headers='keys'))

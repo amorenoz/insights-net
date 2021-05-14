@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "ce327b1b354d07b3c7170a2c6130ca6ac30dc46ec8cf7654b9957abe4b79a4b0"
+            "sha256": "93887426bdc13e3afdac755cd34fba1d8cd4220c14472d7f8de3d63919f9b921"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -24,6 +24,9 @@
             "version": "==0.2.0"
         },
         "cachecontrol": {
+            "extras": [
+                "redis"
+            ],
             "hashes": [
                 "sha256:10d056fa27f8563a271b345207402a6dcce8efab7e5b377e270329c62471b10d",
                 "sha256:be9aa45477a134aee56c8fac518627e1154df063e85f67d4f83ce0ccc23688e8"
@@ -146,11 +149,11 @@
         },
         "insights-core": {
             "hashes": [
-                "sha256:527d107bc3bafa60a5a1d667769120d045d82014b79a8908c42ed00b9c810d4c",
-                "sha256:951166e27becb054b3bc2123c9baf49407429c5bdf19c1e5f89463e4eea5fc18"
+                "sha256:5ce985fa07476d8195a15d6b7328a787b80b22a77f53717287e16516681f2e0d",
+                "sha256:d83319e7923b85b7b987a05861966ba7370b853059469357e1b5313122fb3eff"
             ],
             "index": "pypi",
-            "version": "==3.0.221"
+            "version": "==3.0.222"
         },
         "ipykernel": {
             "hashes": [
@@ -185,11 +188,11 @@
         },
         "jinja2": {
             "hashes": [
-                "sha256:2f2de5285cf37f33d33ecd4a9080b75c87cd0c1994d5a9c6df17131ea1f049c6",
-                "sha256:ea8d7dd814ce9df6de6a761ec7f1cac98afe305b8cdc4aaae4e114b8d8ce24c5"
+                "sha256:03e47ad063331dd6a3f04a43eddca8a966a26ba0c5b7207a9a9e4e08f1b29419",
+                "sha256:a6d58433de0ae800347cab1fa3043cebbabe8baa9d29e668f1c768cb87a333c6"
             ],
-            "markers": "python_version >= '3.6'",
-            "version": "==3.0.0"
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4'",
+            "version": "==2.11.3"
         },
         "jupyter-client": {
             "hashes": [
@@ -453,6 +456,14 @@
             ],
             "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==1.16.0"
+        },
+        "tabulate": {
+            "hashes": [
+                "sha256:d7c013fe7abbc5e491394e10fa845f8f32fe54f8dc60c6622c6cf482d25d47e4",
+                "sha256:eb1d13f25760052e8931f2ef80aaf6045a6cceb47514db8beab24cded16f13a7"
+            ],
+            "index": "pypi",
+            "version": "==0.8.9"
         },
         "tornado": {
             "hashes": [
