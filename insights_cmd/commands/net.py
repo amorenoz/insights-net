@@ -8,6 +8,7 @@ from insights.contrib import ipaddress
 
 from insights_cmd.command import command, backend, Command
 
+
 @command("ip")
 class IP(Command):
     """
@@ -65,11 +66,10 @@ class IP(Command):
                 })
 
         if len(matches) == 0 and rt.get('default'):
-            matches.append(
-                {'match': 'default',
-                  'routes': [r.__dict__ for r in rt.get('default')]
-                }
-            )
+            matches.append({
+                'match': 'default',
+                'routes': [r.__dict__ for r in rt.get('default')]
+            })
 
         return matches
 
@@ -91,12 +91,14 @@ class IP(Command):
     @backend
     def find_in_iptables(self, ip):
         addr = ipaddress.ip_address(ip)
-        matches={}
-        for config in ["IPTabPermanent", "IP6TabPermanent", "IPTables", "IP6Tables"]:
+        matches = {}
+        for config in [
+                "IPTabPermanent", "IP6TabPermanent", "IPTables", "IP6Tables"
+        ]:
             data_source = getattr(self._data, config, None)
             if data_source is not None:
                 match = self.find_in_iptables_common(addr, data_source)
-                matches[config]=match
+                matches[config] = match
 
         return matches
 
@@ -133,27 +135,27 @@ class IP(Command):
         """
         matches = [{
             "regexp": re.compile('-s\s([\w.:/]*)\s'),
-            },{
+        }, {
             "regexp": re.compile('-d\s([\w.:/]*)\s'),
-            },{
+        }, {
             "regexp": re.compile('--to-source\s([\w.:]*)\s'),
-            },{
+        }, {
             "regexp": re.compile('--to-destination\s([\w.:]*)\s'),
-            },{
+        }, {
             "regexp": re.compile('--to-source\s([\w.:]*):\d+\s'),
-            },{
+        }, {
             "regexp": re.compile('--to-destination\s([\w.:]*):\d+\s'),
-            },{
+        }, {
             "regexp": re.compile('--to-source\s([\w.:]*):\d+-\d+\s'),
-            },{
-            "regexp": re.compile('--to-destination\s([\w.:]*):\d+-\d+\s'),
-            }
-        ]
+        }, {
+            "regexp":
+            re.compile('--to-destination\s([\w.:]*):\d+-\d+\s'),
+        }]
 
         for match in matches:
             result = match.get('regexp').search(rule)
             if result:
-                if self._compare_ip_or_net(addr,result.group(1)):
+                if self._compare_ip_or_net(addr, result.group(1)):
                     return True
 
         return False
@@ -181,39 +183,43 @@ class IP(Command):
         was made, e.g:
             {
             "Local": [{'Proto': 'tcp',
- 	    				'Recv-Q': '0',
- 	    				'Send-Q': '0',
- 	    				'Local Address': '127.0.0.1:6633',
- 	    				'Foreign Address': '0.0.0.0:*',
- 	    				'State': 'LISTEN',
- 	    				'User': '42435',
- 	    				'Inode': '368485',
- 	    				'PID/Program name': '61707/openvswitch-a',
- 	    				'Timer': 'off (0.00/0/0)',
- 	    				'PID': '61707',
- 	    				'Program name': 'openvswitch-a',
- 	    				'Local IP': '127.0.0.1',
- 	    				'Port': '6633'},...],
-	    	"Foreign":...
+                       'Recv-Q': '0',
+                       'Send-Q': '0',
+                       'Local Address': '127.0.0.1:6633',
+                       'Foreign Address': '0.0.0.0:*',
+                       'State': 'LISTEN',
+                       'User': '42435',
+                       'Inode': '368485',
+                       'PID/Program name': '61707/openvswitch-a',
+                       'Timer': 'off (0.00/0/0)',
+                       'PID': '61707',
+                       'Program name': 'openvswitch-a',
+                       'Local IP': '127.0.0.1',
+                       'Port': '6633'},...],
+            "Foreign":[...]
             }
         """
         addr = ipaddress.ip_address(ip)
         ipcons = 'Active Internet connections (servers and established)'
         ns = self._data.Netstat.datalist[ipcons]
+
         def compare_ip_port(addr, ip_port):
             """
             compares addr (IPAddress) with the ipport string {IP}:{Port}
             """
-            ip, _ , port = ip_port.rpartition(':')
+            ip, _, port = ip_port.rpartition(':')
             return addr == ipaddress.ip_address(ip)
 
         return {
-            'Local': list(filter(
-                lambda r: compare_ip_port(addr, r['Local Address']), ns)),
-            'Foreign': list(filter(
-                lambda r: compare_ip_port(addr, r['Foreign Address']), ns)),
-		}
-
+            'Local':
+            list(
+                filter(lambda r: compare_ip_port(addr, r['Local Address']),
+                       ns)),
+            'Foreign':
+            list(
+                filter(lambda r: compare_ip_port(addr, r['Foreign Address']),
+                       ns)),
+        }
 
 
 @click.command(name='find-ip')
@@ -234,14 +240,14 @@ def find_ip(ctx, address):
             print("    Type: {}".format(iface.get('type')))
             print("    Addresses:")
             for addr in iface.get('addr'):
-                print("     - {}/{}".format(addr.get('addr'), addr.get('mask')))
+                print("     - {}/{}".format(addr.get('addr'),
+                                            addr.get('mask')))
             print("    MAC: {}".format(iface.get('mac')))
             print("    MTU: {}".format(iface.get('mtu')))
             print("    State: {}".format(iface.get('state')))
             print("    QDisc: {}".format(iface.get('qdisc')))
             print("")
         print("")
-
 
     neigh_matches = cmd.find_in_neigh(address)
     if len(neigh_matches) > 0:
@@ -284,7 +290,7 @@ def find_ip(ctx, address):
         for config, matches in ipt_matches.items():
             if len(matches) > 0:
                 print("{} Matches".format(config))
-                print("-"*(len(config) + 8))
+                print("-" * (len(config) + 8))
                 for match in matches:
                     rule = match.get('rule')
                     print("    - Chain: {}".format(match.get('chain')))
@@ -300,5 +306,5 @@ def find_ip(ctx, address):
             if matches:
                 print("")
                 print("Netstat {} Address Matches".format(where))
-                print("-"*(24+len(where)))
+                print("-" * (24 + len(where)))
                 print(tabulate(matches, headers='keys'))
