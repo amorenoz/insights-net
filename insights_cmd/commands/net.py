@@ -18,9 +18,21 @@ class IP(Command):
         super(IP, self).__init__(*args, **kwargs)
 
     @backend
-    def find_in_host(self, ip):
-        ipdata = self._data.IpAddr
-        return self._find_in_addrs(ip, ipdata)
+    def find_in_ipaddrs(self, ip):
+        result = {}
+        ipdata = []
+        ipdata.append(self._data.IpAddr)
+
+        if 'NetNsIpAddr' in self._data:
+            ipdata.extend(self._data.NetNsIpAddr)
+
+        for ipd in ipdata:
+            match = self._find_in_addrs(ip, ipd)
+            if match:
+                netns = ipd.netns if hasattr(ipd, "netns") else "default"
+                result[netns] = match
+
+        return result
 
     def _find_in_addrs(self, ip, ipdata):
         """
@@ -39,8 +51,20 @@ class IP(Command):
 
     @backend
     def find_in_routes(self, ip):
-        rt = self._data.RouteDevices.data
-        return self._find_in_routes(ip, rt)
+        result = {}
+        route_data = []
+        route_data.append(self._data.RouteDevices)
+
+        if 'NetNsIpRoute' in self._data:
+            route_data.extend(self._data.NetNsIpRoute)
+
+        for route in route_data:
+            match = self._find_in_routes(ip, route)
+            if match:
+                netns = route.netns if hasattr(route, "netns") else "default"
+                result[netns] = match
+
+        return result
 
     def _find_in_routes(self, ip, rt):
         """
@@ -51,7 +75,7 @@ class IP(Command):
         if not rt:
             return matches
 
-        for match, route in rt.items():
+        for match, route in rt.data.items():
             if match == "default":
                 continue
 
@@ -61,10 +85,10 @@ class IP(Command):
                     'routes': [r.__dict__ for r in route]
                 })
 
-        if len(matches) == 0 and rt.get('default'):
+        if len(matches) == 0 and rt.data.get('default'):
             matches.append({
                 'match': 'default',
-                'routes': [r.__dict__ for r in rt.get('default')]
+                'routes': [r.__dict__ for r in rt.data.get('default')]
             })
 
         return matches
@@ -280,23 +304,26 @@ def find_ip(ctx, address):
     Get all the available information regarding an IP(v4/6) address
     """
     cmd = ctx.commands.get("ip")
-    host_matches = cmd.find_in_host(address)
+    host_matches = cmd.find_in_ipaddrs(address)
 
-    if len(host_matches) > 0:
-        print("Host Interface Matches")
-        print("----------------------")
-        for iface in host_matches:
-            print("  - Name: {}".format(iface.get('name')))
-            print("    Type: {}".format(iface.get('type')))
-            print("    Addresses:")
-            for addr in iface.get('addr'):
-                print("     - {}/{}".format(addr.get('addr'),
-                                            addr.get('mask')))
-            print("    MAC: {}".format(iface.get('mac')))
-            print("    MTU: {}".format(iface.get('mtu')))
-            print("    State: {}".format(iface.get('state')))
-            print("    QDisc: {}".format(iface.get('qdisc')))
-            print("")
+    if host_matches:
+        for netns, match in host_matches.items():
+            if len(match) > 0:
+                print("Network Interface Matches (Namespace: {})".format(netns))
+                print("-" * (39+(len(netns))))
+                for iface in match:
+                    print("  - Name: {}".format(iface.get('name')))
+                    print("    Type: {}".format(iface.get('type')))
+                    print("    Addresses:")
+                    for addr in iface.get('addr'):
+                        print("     - {}/{}".format(addr.get('addr'),
+                                                    addr.get('mask')))
+                    print("    MAC: {}".format(iface.get('mac')))
+                    print("    MTU: {}".format(iface.get('mtu')))
+                    print("    State: {}".format(iface.get('state')))
+                    print("    QDisc: {}".format(iface.get('qdisc')))
+                    print("")
+                print("")
         print("")
 
     neigh_matches = cmd.find_in_neigh(address)
@@ -312,20 +339,21 @@ def find_ip(ctx, address):
         print("")
 
     route_matches = cmd.find_in_routes(address)
-    if len(route_matches) > 0:
-        print("Route Matches")
-        print("--------------")
-        for route in route_matches:
-            print("{}: ".format(route.get('match')))
-            for entry in route.get('routes'):
-                print("    - Prefix: {}".format(entry.get('prefix')))
-                print("      Via: {}".format(entry.get('via')))
-                print("      Dev: {}".format(entry.get('dev')))
-                print("      Table: {}".format(entry.get('table')))
-                print("      Metric: {}".format(entry.get('metric')))
-                print("      Pref: {}".format(entry.get('pref')))
-                print("")
-        print("")
+    if route_matches:
+        for netns, match in route_matches.items():
+            print("Route Matches (Namespace: {})".format(netns))
+            print("-" * (27 + len(netns)))
+            for route in match:
+                print("{}: ".format(route.get('match')))
+                for entry in route.get('routes'):
+                    print("    - Prefix: {}".format(entry.get('prefix')))
+                    print("      Via: {}".format(entry.get('via')))
+                    print("      Dev: {}".format(entry.get('dev')))
+                    print("      Table: {}".format(entry.get('table')))
+                    print("      Metric: {}".format(entry.get('metric')))
+                    print("      Pref: {}".format(entry.get('pref')))
+                    print("")
+            print("")
 
     hosts_matches = cmd.find_in_hosts(address)
     if len(hosts_matches) > 0:
