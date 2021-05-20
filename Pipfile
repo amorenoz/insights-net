@@ -4,7 +4,6 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-insights-core = "*"
 ipython = "*"
 coverage = "*"
 ipykernel = "*"
@@ -12,6 +11,7 @@ click = "*"
 jupyter-console = "*"
 colorama = "*"
 tabulate = "*"
+insights-core = {editable = true, ref = "commands", git = "https://github.com/amorenoz/insights-core.git"}
 
 [dev-packages]
 pylint = "*"
