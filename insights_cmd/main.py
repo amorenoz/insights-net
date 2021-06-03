@@ -7,10 +7,11 @@ from insights_cmd.client import InsightsClient
 #from insights_cmd.commands.info import info
 from insights_cmd.commands.host import host
 from insights_cmd.commands.net import find_ip
+from insights_cmd.commands.ovn import ovn
 
 class Context(object):
     def __init__(self, verbose=False):
-        self.client = InsightsClient()
+        self.client = InsightsClient(verbose)
         self.verbose = verbose
 
 @click.group()
@@ -46,6 +47,7 @@ maincli.add_command(start)
 #maincli.add_command(info)
 maincli.add_command(host)
 maincli.add_command(find_ip)
+maincli.add_command(ovn)
 
 def main():
     maincli()
