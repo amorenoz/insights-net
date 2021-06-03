@@ -33,9 +33,18 @@ class InsightsClient:
     def close(self):
         return self.__run("quit", "quit")
 
-    def evaluate(self, name):
-        command = "models.evaluate('{}')".format(name)
-        return self._run(name, command)
+    def evaluate(self, name, subargs=""):
+        command = "\n".join([
+        "{name} = models.evaluate('{name}')".format(name=name),
+        "if not {name}:".format(name=name),
+        "    raise Exception('Model not found')",
+        "kresponse({name}{subargs})".format(name=name,
+                                            subargs="." + subargs if subargs else "")])
+        #command = "\n".join([
+        #"obj = models.evaluate('{name}')".format(name=name),
+        #"kresponse(obj{subargs})".format(subargs="." + subargs if subargs else "")])
+
+        return self.__run(name, command)
 
     def run_command(self, name, **kwargs):
         command = "models.run_command('{name}', {kwargs})".format(
@@ -58,6 +67,9 @@ class InsightsClient:
         return self.__run(name, cmd)
 
     def __run(self, name, cmd):
+        if self.verbose:
+            print("Running command: {}".format(cmd), file=sys.stderr)
+
         def output_hook(msg):
             msg_type = msg["header"]["msg_type"]
             content = msg["content"]
