@@ -87,6 +87,19 @@ class OVSDBParser(CommandParser):
         """
         return self._tables
 
+    def table_list(self):
+        """
+        (list): Returns all the tables
+        """
+        return list(self._tables.keys())
+
+    def columns(self, table):
+        """
+        (list): Returns the list columns in a particular table
+        """
+        first = self._tables.get(next(self._tables.get(table).keys()))
+        return first.keys()
+
     def table(self, name):
         """
         (dict) or (None): Returns the table with the given name
