@@ -63,7 +63,7 @@ def find_ip(ctx, address):
             print("")
 
     hosts_matches = data.get('hosts')
-    if len(hosts_matches) > 0:
+    if host_matches and len(hosts_matches) > 0:
         print("Hosts Matches")
         print("--------------")
         for host in hosts_matches:
