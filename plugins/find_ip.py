@@ -27,12 +27,22 @@ def find_ip(params, ipaddr, iproute, ipneigh, hosts, iptperm, ip6tperm, ip6table
     result = dict()
 
     ## Find in ip addr
-    ipaddr_matches = find_in_ipaddrs(ip_addr, [ipaddr, *nsipaddr])
+    allip = [ipaddr]
+    if nsipaddr:
+        for ns in nsipaddr:
+            allip.append(ns)
+
+    ipaddr_matches = find_in_ipaddrs(ip_addr, allip)
     if ipaddr_matches:
         result["ip_addr"] = ipaddr_matches
 
     # Find in ip route
-    route_matches = find_in_routes(ip_addr, [iproute, *nsiproute])
+    allroute = [iproute]
+    if nsiproute:
+        for nsr in nsiproute:
+            allroute.append(nsr)
+
+    route_matches = find_in_routes(ip_addr, allroute)
     if route_matches:
         result["ip_route"] = route_matches
 
