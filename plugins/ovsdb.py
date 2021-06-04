@@ -134,6 +134,52 @@ class OVSDBParser(CommandParser):
             return list(filter(function, table.values()))
         return []
 
+
+    def _convert_dict(self, value):
+        """
+        Convert a dictionary field value
+        e.g:
+        {classless_static_route="{169.254.169.254/32,192.168.199.2, 0.0.0.0/0,192.168.199.1}", dns_server="{172.16.0.1, 10.0.0.1}", domain_name="\"openstackgate.local\"", lease_time="43200", mtu="1442", router="192.168.199.1", server_id="192.168.199.1", server_mac="fa:16:3e:0b:ba:9d"}
+        """
+        dict_value = value.strip('{')
+        result = {}
+        while True:
+            (key, found, rest) = dict_value.partition('=')
+            if not found:
+                break
+
+            key = key.strip('"')
+
+            item = None
+            new_dict_value=""
+
+            if rest[0] == '"':
+                start = 1
+                while True:
+                    pos = rest.find('"', start)
+                    if pos == len(rest):
+                        # Error, we did not find the end of the string
+                        raise Exception("Wrong format %s" % value)
+
+                    if rest[pos-1] != '\\':
+                        # found a non escaped "
+                        item = rest[1:pos]
+                        new_dict_value = rest[pos+1:].strip(', ')
+                        break
+
+                    start = pos+1
+            else:
+                (item, comma, new_dict_value) = rest.partition(', ')
+                if not comma:
+                    (item, curly, new_dict_value) = rest.partition('}')
+                    if not curly:
+                        raise Exception("Wrong format %s" % value)
+
+            result[key] = self._convert_single_value(item)
+            dict_value = new_dict_value
+
+        return result
+
     def _convert_value(self, value):
         if value[0] == '[':
             converted = []
@@ -142,19 +188,14 @@ class OVSDBParser(CommandParser):
                     converted.append(self._convert_single_value(val))
             return converted
         elif value[0] == '{':
-            keyvals = value.strip('{}').split(', ')
-            converted = {
-                key: self._convert_single_value(value)
-                for key, _, value in [s.partition('=') for s in keyvals]
-                if key and value
-            }
+            converted = self._convert_dict(value)
         else:
             converted = self._convert_single_value(value)
 
         return converted
 
     def _convert_single_value(self, value):
-        value = value.strip('"')
+        value = value.strip('\\"')
         try:
             int_val = int(value)
             return int_val
@@ -173,7 +214,6 @@ class OVSDBParser(CommandParser):
             return False
 
         return value
-
 
 @parser(ovsdb_dump)
 class OVSVswitchDB(OVSDBParser):
