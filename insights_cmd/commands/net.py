@@ -11,6 +11,7 @@ def find_ip(ctx, address):
     data = ctx.client.run_command("find_ip", ip=address)
     if not data:
         print("Command not found")
+        return
 
     host_matches = data.get('ip_addr')
     if host_matches:
@@ -113,6 +114,30 @@ def find_ip(ctx, address):
 
                 print("ALL FLOWS:")
                 print_ofproto_flows(flows)
+    print("")
+
+    nb_matches = data.get('nb')
+    if nb_matches:
+        print("OVN North Bound Matches")
+        print("-----------------------")
+        for table, rows in nb_matches.items():
+            print("   * Table {}".format(table))
+            print(tabulate(rows, headers='keys'))
+            print("")
+    print("")
+
+    sb_matches = data.get('sb')
+    if sb_matches:
+        print("OVN South Bound Matches")
+        print("-----------------------")
+        for table, rows in sb_matches.items():
+            print("   * Table {}".format(table))
+            print(tabulate(rows, headers='keys'))
+            print("")
+    print("")
+
+
+
 
 def print_ofproto_flows(flows):
     for table in set([flow['match'].get('table') for flow in flows]):

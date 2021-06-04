@@ -9,14 +9,15 @@ from insights.parsers.netstat import Netstat
 
 from .ip import NetNsIpAddr, NetNsIpAddr, NetNsIpRoute
 from .ofctl import OVSOfctlFlows
+from .ovn import OVNNBDump, OVNSBDump
 
 
 @command(optional=[
     IpAddr, RouteDevices, IpNeighShow, Hosts, IPTabPermanent, IP6TabPermanent,
-    IP6Tables, IPTables, Netstat, NetNsIpAddr, NetNsIpRoute, OVSOfctlFlows
-])
+    IP6Tables, IPTables, Netstat, NetNsIpAddr, NetNsIpRoute, OVSOfctlFlows,
+    OVNNBDump, OVNSBDump])
 def find_ip(params, ipaddr, iproute, ipneigh, hosts, iptperm, ip6tperm, ip6tables,
-            iptables, netstat, nsipaddr, nsiproute, ofctl):
+            iptables, netstat, nsipaddr, nsiproute, ofctl, ovn_nb, ovn_sb):
     """
     Find an IP address in a number of possible places.
     Returns a dict with each key being the name of the place where a match was
@@ -72,6 +73,15 @@ def find_ip(params, ipaddr, iproute, ipneigh, hosts, iptperm, ip6tperm, ip6table
     if ofctl_matches:
         result["ofctl"] = ofctl_matches
 
+    #Find in ovs ovn
+    ovn_nb_matches = find_in_nb(ip_addr, ovn_nb)
+    if ovn_nb_matches:
+        result["nb"] = ovn_nb_matches
+
+    ovn_sb_matches = find_in_sb(ip_addr, ovn_sb)
+    if ovn_sb_matches:
+        result["sb"] = ovn_sb_matches
+
     return result
 
 def find_in_ipaddrs(addr, ipaddr_parsers):
@@ -120,7 +130,6 @@ def find_in_routes(addr, route_data):
         route_data: list of IPRouteDevices
     """
     result = {}
-    route_data = []
     for route in route_data:
         match = _find_in_routes(addr, route)
         if match:
@@ -363,3 +372,99 @@ def find_in_ofctl(addr, ofctls):
             result[ofctl.bridge_name] = flows
 
     return result
+
+
+#FIXME:
+# - Only regexp on fields that make sense
+# - IPv6 regex
+IP_CIDR_RE = re.compile(r"((?<!\d\.)(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?:/\d{1,2})?)")
+
+def list_exact(addr, addr_list):
+    for string in addr_list:
+        for elem in string.split(' '):
+            try:
+                if _compare_ip_or_net(addr, elem):
+                    return True
+            except ValueError:
+               pass
+
+    for string in addr_list:
+        for elem in string.split(','):
+            try:
+                if _compare_ip_or_net(addr, elem):
+                    return True
+            except ValueError:
+               pass
+    return False
+
+def dict_regexp(addr, str_dict):
+    """
+    FIXME: IPV6
+    """
+    for key, value in str_dict.items():
+        if regexp_value(addr, value):
+            return True
+
+    return False
+
+def regexp_value(addr, value):
+    if not isinstance(value, str):
+        return False
+
+    for match in IP_CIDR_RE.findall(value):
+        try:
+            if _compare_ip_or_net(addr, match):
+                return True
+        except ValueError:
+            pass
+    return False
+
+def exact(addr, string):
+    return _compare_ip_or_net(addr, string)
+
+NBFIELDS = {
+    "Address_Set": {"addresses": list_exact},
+    "Logical_Switch_Port": {"addresses": list_exact,
+                            "dynamic_addresses": list_exact,
+                            "external_ids": dict_regexp,
+                            },
+    "DHCP_Options": {"options": dict_regexp,
+                     "external_ids": dict_regexp,
+                     "cidr": exact},
+}
+
+SBFIELDS = {
+    "Address_Set": {"addresses": list_exact},
+    "Encap": {"ip": exact,},
+    "IGMP_Group": {"address": exact},
+    "Logical_Flow": {"match": regexp_value,
+                    "actions": regexp_value},
+}
+
+def find_in_nb(addr, ovndb):
+    result = {}
+    if not ovndb:
+        return
+    return find_in_ovn(addr, ovndb, NBFIELDS)
+
+def find_in_sb(addr, ovndb):
+    result = {}
+    if not ovndb:
+        return
+    return find_in_ovn(addr, ovndb, SBFIELDS)
+
+def find_in_ovn(addr, ovndb, fields):
+    result = {}
+    for name, matches in fields.items():
+        table = ovndb.table(name)
+        if not table:
+            continue
+        for uid, row in table.items():
+            for column, match in fields.get(name).items():
+                if match(addr, row.get(column)):
+                    if not result.get(name):
+                        result[name] = []
+                    result[name].append(row)
+
+    return result
+
