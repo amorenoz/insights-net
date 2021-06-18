@@ -4,7 +4,7 @@ import click
 
 from insights_cmd.client import InsightsClient
 
-#from insights_cmd.commands.info import info
+from insights_cmd.commands.info import info
 from insights_cmd.commands.host import host
 from insights_cmd.commands.net import find_ip
 from insights_cmd.commands.ovn import ovn
@@ -44,7 +44,7 @@ def start(obj, paths, plugins, config):
 
 maincli.add_command(stop)
 maincli.add_command(start)
-#maincli.add_command(info)
+maincli.add_command(info)
 maincli.add_command(host)
 maincli.add_command(find_ip)
 maincli.add_command(ovn)

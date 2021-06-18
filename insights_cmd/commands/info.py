@@ -1,65 +1,46 @@
 import click
 
-from insights_cmd.command import command, backend, Command, COMMANDS
-from insights_cmd.shell import Models
-
-@command("info")
-class Info(Command):
-    """
-    Extract basic information about insights-cmd
-    """
-    def __init__(self, *args, **kwargs):
-        super(Info, self).__init__(*args, **kwargs)
-
-    @backend
-    def available(self):
-        """
-        Return available data sources
-        """
-        ret = dict()
-
-        if isinstance(self._data, Models):
-            ret[self._data.path] = self.get_sources(self._data)
-        else:
-            for path in self._data:
-                ret[path] = self.get_sources(self._data)
-        return ret
-
-    def get_sources(self, model):
-        return list(model.keys())
-
 @click.command(name='info')
 @click.pass_obj
 def info(ctx):
     """
     Show basic information of the archives
     """
-    cmd = ctx.commands.get("info")
-    if not cmd:
+    data = ctx.client.available()
+    if not data:
         print("Command not found")
-    if not cmd:
-        print("Command not found")
+        return
 
-    available=cmd.available()
+    for archive, host_data in data.items():
+        if not host_data:
+            continue
 
-    for archive in available.keys():
-        print("Available Archives")
-        print("------------------")
-        print("  Name: {}".format(archive))
-        print("  Available Data sources: {}".format(len(available[archive])))
+        print("Archive: " + archive)
+        print("*" * (9 + len(archive)))
+        if isinstance (host_data, str):
+            print(host_data)
+        else:
+            print_results(host_data)
+            print("")
 
-    print("")
-    print("Available Commands")
-    print("------------------")
-    for cmd in ctx.commands:
-        archives = ctx.commands[cmd].available_archive()
-        if len(archives) > 0:
-            print("{}:".format(cmd))
-            print("  {}".format(
-                type(ctx.commands[cmd]).__doc__.strip()))
-            print("  Available archives:")
-            for archive in archives:
-                print("   - {}".format(archive))
+def print_results(data):
+    if data.get('models'):
+        print("Available Models")
+        print("----------------")
+        models = data.get('models')
+        # Print in 3 columns
+        maxlen = len(max(models, key=len)) + 4
+        fmt = "{{:<{len}}}{{:<{len}}}{{:<}}".format(len=maxlen)
+        print(fmt)
+        for a,b,c in zip(models[::3],models[1::3],models[2::3]):
+            print(fmt.format(a, b, c))
+
         print("")
+
+    if data.get('commands'):
+        print("Available Commands")
+        print("------------------")
+        for cmd in data.get('commands') :
+            print("  {}".format(cmd))
 
 
