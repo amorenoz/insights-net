@@ -13,6 +13,18 @@ def find_ip(ctx, address):
         print("Command not found")
         return
 
+    for archive, host_data in data.items():
+        if not host_data:
+            continue
+
+        print("Archive: " + archive)
+        print("*" * (9 + len(archive)))
+        if isinstance (host_data, str):
+            print(host_data)
+        else:
+            print_results(host_data)
+
+def print_results(data):
     host_matches = data.get('ip_addr')
     if host_matches:
         for netns, match in host_matches.items():

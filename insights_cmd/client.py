@@ -10,9 +10,19 @@ client=None
 class InsightsClient:
     INIT_COMMANDS= "\n".join([
         "from IPython.display import JSON",
+        "from insights.shell import Models",
         "def kresponse(data):",
-        "    return JSON({'response': data})"
-    ])
+        "    return JSON({'response': data})",
+        "def krun_command(name, **kwargs):",
+        "   if isinstance(models, Models):",
+        "       return {",
+        "           models.path(): models.run_command(name, **kwargs)",
+        "       }",
+        "   else:",
+        "       return {",
+        "               path: models.get(path).run_command(name, **kwargs)",
+        "                   for path in models.keys()",
+        "           }"])
 
     def __init__(self, verbose=False):
         self._client = None
@@ -35,19 +45,31 @@ class InsightsClient:
 
     def evaluate(self, name, subargs=""):
         command = "\n".join([
-        "{name} = models.evaluate('{name}')".format(name=name),
-        "if not {name}:".format(name=name),
-        "    raise Exception('Model not found')",
-        "kresponse({name}{subargs})".format(name=name,
-                                            subargs="." + subargs if subargs else "")])
-        #command = "\n".join([
-        #"obj = models.evaluate('{name}')".format(name=name),
-        #"kresponse(obj{subargs})".format(subargs="." + subargs if subargs else "")])
+            "result={}",
+            "if isinstance(models, Models):",
+            "   {name} = models.evaluate('{name}')".format(name=name),
+            "   if not {name}:".format(name=name),
+            "       kresponse(None)",
+            "   else:",
+            "       value = {name}{subargs}".format(
+                        name=name, subargs="." + subargs if subargs else ""),
+            "       result = {models.path(): value}",
+            "else:",
+            "   result = {}",
+            "   for path, model in models.items():",
+            "       value = None",
+            "       {name} = model.evaluate('{name}')".format(name=name),
+            "       if {name}:".format(name=name),
+            "           value = {name}{subargs}".format(
+                name=name, subargs="." + subargs if subargs else ""),
+            "       result[path] = value",
+            "kresponse(result)"
+        ])
 
         return self.__run(name, command)
 
     def run_command(self, name, **kwargs):
-        command = "models.run_command('{name}', {kwargs})".format(
+        command = "krun_command('{name}', {kwargs})".format(
             name=name,
             kwargs=",".join(
                 [ "=".join([key, self._prepare_arg(kwargs[key])])

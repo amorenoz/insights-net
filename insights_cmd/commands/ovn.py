@@ -6,6 +6,9 @@ from rich.pretty import Pretty
 @click.group(name='ovn')
 @click.pass_obj
 def ovn(ctx):
+    """
+    Show the OVN configuration
+    """
     pass
 
 @click.group(name='nb')
@@ -26,15 +29,24 @@ def list_cmd(ctx, table):
     """
     List the content of a OVN NB Table
     """
-    console = Console()
     if not table:
         tables = ctx.client.evaluate(ctx.db, 'table_list()')
         if not tables:
             print("OVN data not available")
             return
 
-        console.print("Available Tables:")
-        console.print(tables)
+        for archive, host_data in tables.items():
+            if not host_data:
+                continue
+
+            print("Archive: " + archive)
+            print("*" * (9 + len(archive)))
+            if isinstance (host_data, str):
+                print(host_data)
+            else:
+                console = Console()
+                console.print("Available Tables:")
+                console.print(host_data)
         return
 
     table_data = ctx.client.evaluate(ctx.db, 'table("{}")'.format(table))
@@ -42,6 +54,20 @@ def list_cmd(ctx, table):
         print("OVN data not available")
         return
 
+    for archive, host_data in table_data.items():
+        if not host_data:
+            continue
+
+        print("Archive: " + archive)
+        print("*" * (9 + len(archive)))
+        if isinstance (host_data, str):
+            print(host_data)
+        else:
+            print_results(host_data, table)
+
+
+def print_results(table_data, table):
+    console = Console()
     tt = Table(title=table)
     for header, value in table_data[next(iter(table_data.keys()))].items():
         nowrap = False
