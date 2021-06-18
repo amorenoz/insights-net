@@ -42,6 +42,7 @@ class OVSOfctlFlows(CommandParser):
             raise SkipException("Empty Content!")
 
         self._bridges = []
+        self.parsing_errs = {}
 
         # Extract the bridge name
         try:
@@ -53,23 +54,30 @@ class OVSOfctlFlows(CommandParser):
         for line in content:
             if self._is_header(line):
                 continue
-            # Actions are a whole different thing that might contain multiple ','s and '='s
-            # They should be handled separately. In fact, I don't know if blind sting splitting
-            # would work. Imagine this:
-            # actions=strip_vlan,load:0x5->NXM_NX_REG13[],load:0x4->NXM_NX_REG11[],load:0x9->NXM_NX_REG12[],load:0xc->OXM_OF_METADATA[],load:0x4->NXM_NX_REG14[],resubmit(,8)
-            line_parts = line.split("actions=")
 
-            if len(line_parts) != 2:
-                raise SkipException("Invalid Content!")
+            try:
+                # Actions are a whole different thing that might contain multiple ','s and '='s
+                # They should be handled separately. In fact, I don't know if blind sting splitting
+                # would work. Imagine this:
+                # actions=strip_vlan,load:0x5->NXM_NX_REG13[],load:0x4->NXM_NX_REG11[],load:0x9->NXM_NX_REG12[],load:0xc->OXM_OF_METADATA[],load:0x4->NXM_NX_REG14[],resubmit(,8)
+                line_parts = line.split("actions=")
 
-            flow = dict()
-            flow['raw'] = line
-            flow_list = split_kv_pairs(line_parts[0].split(","), split_on='=')
-            if flow_list:
-                flow['match'] = dict(map(self._decode_field,
-                                         flow_list.items()))
-                flow['actions'] = decode_action_line(line_parts[1])
-                self._bridges.append(flow)
+                if len(line_parts) != 2:
+                    raise SkipException("Invalid Content!")
+
+                flow = dict()
+                flow['raw'] = line
+                flow_list = split_kv_pairs(line_parts[0].split(","), split_on='=')
+                if flow_list:
+                    flow['match'] = dict(map(self._decode_field,
+                                             flow_list.items()))
+                    flow['actions'] = decode_action_line(line_parts[1])
+
+                    self._bridges.append(flow)
+
+            except Exception as e:
+                self.parsing_errs[line] = e
+                continue
 
         if not self._bridges:
             raise SkipException("Invalid Content!")
