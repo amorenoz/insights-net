@@ -48,9 +48,7 @@ class InsightsClient:
             "result={}",
             "if isinstance(models, Models):",
             "   {name} = models.evaluate('{name}')".format(name=name),
-            "   if not {name}:".format(name=name),
-            "       kresponse(None)",
-            "   else:",
+            "   if name {name}:".format(name=name),
             "       value = {name}{subargs}".format(
                         name=name, subargs="." + subargs if subargs else ""),
             "       result = {models.path(): value}",
@@ -69,6 +67,9 @@ class InsightsClient:
         return self.__run(name, command)
 
     def run_command(self, name, **kwargs):
+        """
+        Run a command. Returns a dictionary indexed by archive name with the results
+        """
         command = "krun_command('{name}', {kwargs})".format(
             name=name,
             kwargs=",".join(
@@ -77,8 +78,24 @@ class InsightsClient:
         )
         return self._run(name, command)
 
-    def list_commands(self):
-        return self._run("list", "list(models.get_commands().keys())")
+    def available(self):
+        """
+        Returns the available models and commands in a dictionary indexed by archive
+        Returns:
+            dict [str: dictionary ['models': list[str], 'commands' : list[str]]]
+        """
+        command = "\n".join([
+            "result = {}",
+            "if isinstance(models, Models):",
+            "   result = { models.path(): {'models': [str(model) for model in models.keys()],",
+            "                              'commands': [str(cmd) for cmd in models.get_commands()]}}",
+            "else:",
+            "   for path, model in models.items():",
+            "       result[path] = {'models': [str(m) for m in model.keys()],",
+            "                       'commands': [str(cmd) for cmd in model.get_commands()]}",
+            "kresponse(result)"
+        ])
+        return self.__run("available", command)
 
     def _prepare_arg(self, arg):
         if isinstance(arg, str):
