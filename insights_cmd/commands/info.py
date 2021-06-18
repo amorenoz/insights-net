@@ -31,7 +31,6 @@ def print_results(data):
         # Print in 3 columns
         maxlen = len(max(models, key=len)) + 4
         fmt = "{{:<{len}}}{{:<{len}}}{{:<}}".format(len=maxlen)
-        print(fmt)
         for a,b,c in zip(models[::3],models[1::3],models[2::3]):
             print(fmt.format(a, b, c))
 

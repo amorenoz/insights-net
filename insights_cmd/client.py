@@ -48,7 +48,7 @@ class InsightsClient:
             "result={}",
             "if isinstance(models, Models):",
             "   {name} = models.evaluate('{name}')".format(name=name),
-            "   if name {name}:".format(name=name),
+            "   if {name}:".format(name=name),
             "       value = {name}{subargs}".format(
                         name=name, subargs="." + subargs if subargs else ""),
             "       result = {models.path(): value}",
