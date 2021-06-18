@@ -1,6 +1,8 @@
 import click
 
-@click.command(name='info')
+from insights_cmd.main import maincli
+
+@maincli.command(name='info')
 @click.pass_obj
 def info(ctx):
     """

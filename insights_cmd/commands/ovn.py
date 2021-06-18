@@ -3,7 +3,9 @@ from rich.console import Console
 from rich.table import Table
 from rich.pretty import Pretty
 
-@click.group(name='ovn')
+from insights_cmd.main import maincli
+
+@maincli.group(name='ovn')
 @click.pass_obj
 def ovn(ctx):
     """
@@ -11,23 +13,39 @@ def ovn(ctx):
     """
     pass
 
-@click.group(name='nb')
+@ovn.group(name='nb')
 @click.pass_obj
 def nb(ctx):
     setattr(ctx, 'db', 'OVNNBDump')
 
-@click.group(name='sb')
+@ovn.group(name='sb')
 @click.pass_obj
 def sb(ctx):
     setattr(ctx, 'db', 'OVNSBDump')
     pass
 
-@click.command(name='list')
+
+@nb.command(name='list')
 @click.argument('table', required=False, nargs=1)
 @click.pass_obj
-def list_cmd(ctx, table):
+def nb_list(ctx, table):
     """
     List the content of a OVN NB Table
+    """
+    return list_cmd(ctx, table)
+
+@sb.command(name='list')
+@click.argument('table', required=False, nargs=1)
+@click.pass_obj
+def sb_list(ctx, table):
+    """
+    List the content of a OVN SB Table
+    """
+    return list_cmd(ctx, table)
+
+def list_cmd(ctx, table):
+    """
+    List the content of a DB Tabel
     """
     if not table:
         tables = ctx.client.evaluate(ctx.db, 'table_list()')
@@ -83,14 +101,27 @@ def print_results(table_data, table):
 
     console.print(tt)
 
-@click.command(name='get')
+@nb.command(name='get')
 @click.argument('table', required=True, nargs=1)
 @click.argument('uuid', required=True, nargs=1)
 @click.pass_obj
+def nb_get(ctx, table, uuid):
+    """
+    Get an element form the NB Database
+    """
+    return get_cmd(ctx, table, uuid)
+
+@sb.command(name='get')
+@click.argument('table', required=True, nargs=1)
+@click.argument('uuid', required=True, nargs=1)
+@click.pass_obj
+def sb_get(ctx, table, uuid):
+    """
+    Get an element form the SB Database
+    """
+    return get_cmd(ctx, table, uuid)
+
 def get_cmd(ctx, table, uuid):
-    """
-    Get an element form the database
-    """
     data = ctx.client.evaluate('OVNNBDump', 'filter("{}", lambda x: x.get("_uuid").startswith("{}"))'.format(table, uuid))
     if not data:
         print("OVN data not available")
@@ -98,11 +129,4 @@ def get_cmd(ctx, table, uuid):
 
     console = Console()
     console.print(data)
-
-nb.add_command(list_cmd)
-nb.add_command(get_cmd)
-sb.add_command(list_cmd)
-sb.add_command(get_cmd)
-ovn.add_command(nb)
-ovn.add_command(sb)
 

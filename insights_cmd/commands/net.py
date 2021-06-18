@@ -1,7 +1,9 @@
 import click
 from tabulate import tabulate
 
-@click.command(name='find-ip')
+from insights_cmd.main import maincli
+
+@maincli.command(name='find-ip')
 @click.argument("address", required=True, nargs=1)
 @click.pass_obj
 def find_ip(ctx, address):

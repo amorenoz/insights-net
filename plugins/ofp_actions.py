@@ -2,10 +2,8 @@ import re
 import sys
 from abc import ABC, abstractmethod
 
-
 class DecodeError(Exception):
     pass
-
 
 class FieldDecoder(ABC):
     @abstractmethod

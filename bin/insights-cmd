@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from insights_cmd.main import main
+from insights_cmd import commands
 
 if __name__ == '__main__':
     main()

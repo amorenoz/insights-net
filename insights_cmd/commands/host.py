@@ -1,6 +1,8 @@
 import click
 
-@click.command(name='host')
+from insights_cmd.main import maincli
+
+@maincli.command(name='host')
 @click.pass_obj
 def host(ctx):
     """
