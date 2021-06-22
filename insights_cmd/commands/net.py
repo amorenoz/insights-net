@@ -1,4 +1,5 @@
 import click
+import yaml
 from tabulate import tabulate
 
 from insights_cmd.main import maincli
@@ -150,6 +151,17 @@ def print_results(data):
             print("")
     print("")
 
+    pods_matches = data.get('pods')
+    if pods_matches:
+        print("OCP Pod Matches")
+        print("---------------")
+        for pod in pods_matches:
+            print("   * PodName: {}  Namespace {} matches in {}".
+                  format(pod.get('name'), pod.get('namespace'), pod.get('match')))
+            print("   * Pod full config:")
+            print(yaml.dump(pod.get('full')))
+            print("")
+    print("")
 
 
 

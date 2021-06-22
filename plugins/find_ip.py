@@ -10,14 +10,16 @@ from insights.parsers.netstat import Netstat
 from .ip import NetNsIpAddr, NetNsIpAddr, NetNsIpRoute
 from .ofctl import OVSOfctlFlows
 from .ovn import OVNNBDump, OVNSBDump
+from .ocp  import OCPPods, OCPServices
 
 
 @command(optional=[
     IpAddr, RouteDevices, IpNeighShow, Hosts, IPTabPermanent, IP6TabPermanent,
     IP6Tables, IPTables, Netstat, NetNsIpAddr, NetNsIpRoute, OVSOfctlFlows,
-    OVNNBDump, OVNSBDump])
+    OVNNBDump, OVNSBDump, OCPPods, OCPServices])
 def find_ip(params, ipaddr, iproute, ipneigh, hosts, iptperm, ip6tperm, ip6tables,
-            iptables, netstat, nsipaddr, nsiproute, ofctl, ovn_nb, ovn_sb):
+            iptables, netstat, nsipaddr, nsiproute, ofctl, ovn_nb, ovn_sb, pods,
+            services):
     """
     Find an IP address in a number of possible places.
     Returns a dict with each key being the name of the place where a match was
@@ -81,6 +83,10 @@ def find_ip(params, ipaddr, iproute, ipneigh, hosts, iptperm, ip6tperm, ip6table
     ovn_sb_matches = find_in_sb(ip_addr, ovn_sb)
     if ovn_sb_matches:
         result["sb"] = ovn_sb_matches
+
+    pods_matches = find_in_pods(ip_addr, pods)
+    if pods_matches:
+        result["pods"] = pods_matches
 
     return result
 
@@ -468,3 +474,19 @@ def find_in_ovn(addr, ovndb, fields):
 
     return result
 
+def find_in_pods(addr, pod_data):
+    result = []
+    if not pod_data:
+        return
+
+    for podlist in pod_data:
+        for pod in podlist.get('items'):
+            if (pod.get('status').get('podIP') and
+                _compare_ip_or_net(addr, pod.get('status').get('podIP'))):
+                   result.append({
+                       "name": pod.get('metadata').get('name'),
+                       "full": pod,
+                       "match": "podIP",
+                       "namespace": podlist.namespace,
+                   })
+    return result
