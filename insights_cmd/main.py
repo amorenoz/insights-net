@@ -17,7 +17,7 @@ def maincli(ctx, verbose):
     pass
 
 
-@click.command(name='stop')
+@maincli.command(name='stop')
 @click.pass_obj
 def stop(obj):
     """
