@@ -20,7 +20,6 @@ class OVSSpec(SpecSet):
                            context=SosArchiveContext)
 
 
-@parser(OVSSpec.ofctl_dump_flows)
 class OVSOfctlFlows(CommandParser):
     def __init__(self, *args, **kwargs):
         self._field_decoders = {
@@ -43,13 +42,6 @@ class OVSOfctlFlows(CommandParser):
 
         self._bridges = []
         self.parsing_errs = {}
-
-        # Extract the bridge name
-        try:
-            self._bridge_name = self.file_path.split(
-                "ovs-ofctl_dump-flows_")[1]
-        except:
-            raise SkipException("Invalid Path!")
 
         for line in content:
             if self._is_header(line):
@@ -260,3 +252,24 @@ class OVSOfctlShow(CommandParser):
         (int): Returns the number of buffers
         """
         return self._buffers
+
+
+@parser(OVSSpec.ofctl_dump_flows)
+class SosOvsOfctlFlows(OVSOfctlFlows):
+    def __init__(self, *args, **kwargs):
+        super(SosOvsOfctlFlows, self).__init__(*args, **kwargs)
+
+    def parse_content(self, content):
+        if not content:
+            raise SkipException("Empty Content")
+
+        # Extract the bridge name
+        try:
+            self._bridge_name = self.file_path.split(
+                "ovs-ofctl_dump-flows_")[1]
+        except:
+            raise SkipException("Invalid Path!")
+
+        return super(SosOvsOfctlFlows, self).parse_content(content)
+
+

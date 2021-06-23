@@ -4,6 +4,7 @@ Plugin that deals with must-gather gather_network_logs content
 import gzip
 
 from insights.core.plugins import parser
+from insights.parsers import SkipException
 from insights.core.spec_factory import glob_file, RawFileProvider
 
 from .ovsdb import OVSDBDumpParser
@@ -44,4 +45,30 @@ class OCPSB(OVSDBDumpParser):
     def parse_content(self, content):
         self.pod_name = self.file_name.rpartition("_sbdb.gz")
         return super(OCPSB, self).parse_content(content)
+
+"""
+Ofproto dumps
+"""
+ocp_flows = glob_file("*/network_logs/*ofctl_dump_flows*")
+@parser(ocp_flows)
+class OCPOfclDumpFlows(OVSOfctlFlows):
+    def __init__(self, *args, **kwargs):
+        super(OCPOfclDumpFlows, self).__init__(*args, **kwargs)
+
+    def hostname(self):
+        return self._hostname
+
+    def parse_content(self, content):
+        if not content:
+            raise SkipException("Empty Content")
+
+        # Extract the bridge name
+        try:
+            parts = self.file_name.split("_ovs_ofctl_dump_flows_")
+            self._hostname = parts[0]
+            self._bridge_name = parts[1]
+        except:
+            raise SkipException("Invalid Path!")
+
+        return super(OCPOfclDumpFlows, self).parse_content(content)
 
