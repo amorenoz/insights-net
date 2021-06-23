@@ -4,6 +4,7 @@ from tabulate import tabulate
 
 from insights_cmd.main import maincli
 
+
 @maincli.command(name='find-ip')
 @click.argument("address", required=True, nargs=1)
 @click.pass_obj
@@ -22,18 +23,20 @@ def find_ip(ctx, address):
 
         print("Archive: " + archive)
         print("*" * (9 + len(archive)))
-        if isinstance (host_data, str):
+        if isinstance(host_data, str):
             print(host_data)
         else:
             print_results(host_data)
+
 
 def print_results(data):
     host_matches = data.get('ip_addr')
     if host_matches:
         for netns, match in host_matches.items():
             if len(match) > 0:
-                print("Network Interface Matches (Namespace: {})".format(netns))
-                print("-" * (39+(len(netns))))
+                print(
+                    "Network Interface Matches (Namespace: {})".format(netns))
+                print("-" * (39 + (len(netns))))
                 for iface in match:
                     print("  - Name: {}".format(iface.get('name')))
                     print("    Type: {}".format(iface.get('type')))
@@ -121,7 +124,8 @@ def print_results(data):
                 print("")
 
                 drops = list(
-                    filter(lambda x : {'action': 'drop'} in x['actions'], flows))
+                    filter(lambda x: {'action': 'drop'} in x['actions'],
+                           flows))
 
                 if drops:
                     print("DROPS:")
@@ -156,19 +160,32 @@ def print_results(data):
         print("OCP Pod Matches")
         print("---------------")
         for pod in pods_matches:
-            print("   * PodName: {}  Namespace {} matches in {}".
-                  format(pod.get('name'), pod.get('namespace'), pod.get('match')))
+            print("   * Pod Name: {}  Namespace {} matches in field {}: {}".
+                  format(pod.get('name'), pod.get('namespace'),
+                         pod.get('field'), pod.get('match')))
             print("   * Pod full config:")
             print(yaml.dump(pod.get('full')))
             print("")
     print("")
 
+    services_matches = data.get('services')
+    if services_matches:
+        print("OCP Services Matches")
+        print("--------------------")
+        for service in services_matches:
+            print(
+                "   * Service Name: {}  Namespace {} matches in field {}: {}".
+                format(service.get('name'), service.get('namespace'),
+                       service.get('field'), service.get('match')))
+            print("   * service full config:")
+            print(yaml.dump(service.get('full')))
+            print("")
+    print("")
 
 
 def print_ofproto_flows(flows):
     for table in set([flow['match'].get('table') for flow in flows]):
         print("   * Table {}".format(table))
-        for flow in filter(
-                lambda f: f['match'].get('table') == table, flows):
+        for flow in filter(lambda f: f['match'].get('table') == table, flows):
             print("     {}".format(flow.get('raw')))
     print("")

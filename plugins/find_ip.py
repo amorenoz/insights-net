@@ -88,6 +88,10 @@ def find_ip(params, ipaddr, iproute, ipneigh, hosts, iptperm, ip6tperm, ip6table
     if pods_matches:
         result["pods"] = pods_matches
 
+    services_matches = find_in_services(ip_addr, services)
+    if services_matches:
+        result["services"] = services_matches
+
     return result
 
 def find_in_ipaddrs(addr, ipaddr_parsers):
@@ -475,18 +479,45 @@ def find_in_ovn(addr, ovndb, fields):
     return result
 
 def find_in_pods(addr, pod_data):
+    return find_in_ocp(addr, pod_data, "status", "podIP")
+
+def find_in_services(addr, service_data):
+    return find_in_ocp(addr, service_data, "spec", "clusterIPs")
+
+def find_in_ocp(addr, ocp_data, *field_list):
     result = []
-    if not pod_data:
+    if not ocp_data:
         return
 
-    for podlist in pod_data:
-        for pod in podlist.get('items'):
-            if (pod.get('status').get('podIP') and
-                _compare_ip_or_net(addr, pod.get('status').get('podIP'))):
-                   result.append({
-                       "name": pod.get('metadata').get('name'),
-                       "full": pod,
-                       "match": "podIP",
-                       "namespace": podlist.namespace,
-                   })
+    for resource_list in ocp_data:
+        for item in resource_list.get('items'):
+            elem = item
+            for f in field_list:
+                elem = elem.get(f)
+                if not elem:
+                    continue
+
+            match = False
+            if isinstance(elem, list) or isinstance(elem, tuple):
+                for f in elem:
+                    try:
+                        if f and _compare_ip_or_net(addr, f):
+                            match = True
+                            break
+                    except ValueError:
+                        continue
+            else:
+                try:
+                    match = elem and _compare_ip_or_net(addr, elem)
+                except ValueError:
+                    continue
+
+            if match:
+                result.append({
+                    "name": item.get('metadata').get('name') if item.get('metadata') else "unknown",
+                    "full": item,
+                    "field": field_list[-1],
+                    "match": elem,
+                    "namespace": resource_list.namespace,
+             })
     return result
