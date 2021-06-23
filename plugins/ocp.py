@@ -5,7 +5,7 @@ from insights.core.context import MustGatherContext, ExecutionContext, FSRoots
 from insights.core.plugins import datasource, parser
 from insights.parsers import SkipException
 
-from insights.core.spec_factory import TextFileProvider, RawFileProvider
+from insights.core.spec_factory import TextFileProvider, RawFileProvider, simple_file
 
 from insights import YAMLParser
 
@@ -52,6 +52,16 @@ class recursive_dir(object):
                 result.append(self.kind(entry_path[len(root):], root=root, ds=self, ctx=ctx))
         return result
 
+
+netconf = simple_file("cluster-scoped-resources/config.openshift.io/networks.yaml",
+                      contexte = MustGatherContext)
+
+@parser(netconf, context = MustGatherContext)
+class OCPNetConf(YAMLParser):
+    """
+    Contains the OCP network configuration yaml
+    """
+    pass
 
 class OCPNamespaceResource(YAMLParser):
     """

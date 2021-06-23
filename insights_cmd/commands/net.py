@@ -182,6 +182,19 @@ def print_results(data):
             print("")
     print("")
 
+    ocpnet_matches = data.get('ocp_net')
+    if ocpnet_matches:
+        print("OCP Network Configuration Matches")
+        print("---------------------------------")
+        for conf in ocpnet_matches:
+            print(
+                "   * Network Name: {} matches in field {}: {}".
+                format(conf.get('name'), conf.get('field'), conf.get('match')))
+            print("   * Network full config:")
+            print(yaml.dump(conf.get('full')))
+            print("")
+    print("")
+
 
 def print_ofproto_flows(flows):
     for table in set([flow['match'].get('table') for flow in flows]):
