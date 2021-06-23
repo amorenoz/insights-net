@@ -152,3 +152,4 @@ routes = recursive_dir("namespaces", include="route.openshift.io/routes.yaml", c
 @parser(routes, context = MustGatherContext)
 class OCPRoutes(OCPNamespaceResource):
     pass
+

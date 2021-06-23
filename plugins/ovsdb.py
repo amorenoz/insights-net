@@ -1,4 +1,5 @@
-from insights import CommandParser, parser
+import json
+from insights import CommandParser, parser, Parser
 from insights.core.spec_factory import simple_file
 from insights.parsers import SkipException
 from insights.core.context import SosArchiveContext
@@ -7,78 +8,15 @@ ovsdb_dump = simple_file("/sos_commands/openvswitch/ovsdb-client_-f_list_dump",
                          context=SosArchiveContext)
 
 
-class OVSDBParser(CommandParser):
+class OVSDBParser(Parser):
     """
-    Input example:
-    ==============
-    AutoAttach table
-
-    Bridge table
-    _uuid               : 45711587-9496-4d14-8dfe-67a8c273e610
-    auto_attach         : []
-    controller          : [65c7f516-5bef-41f1-b633-94d6375fa356]
-    datapath_id         : "000048df37ce6d70"
-    datapath_type       : system
-    datapath_version    : "<unknown>"
-    external_ids        : {bridge-id=br-link}
-    fail_mode           : secure
-    flood_vlans         : []
-    flow_tables         : {}
-    ipfix               : []
-    mcast_snooping_enable: false
-    mirrors             : []
-    name                : br-link
-    netflow             : []
-    other_config        : {mac-table-size="50000"}
-    ports               : [8918bf51-abfa-4b2e-961f-2dca931bf2a8, acb08497-7deb-4ca7-bc9d-d1119dc2d85f, dcf4d708-b4d8-4948-8570-d2a6a05e7949]
-
-
+    Base class for OVSDB data
+    Expects _tables to have
     """
     def __init__(self, *args, **kwargs):
-        super(OVSDBParser, self).__init__(*args, **kwargs)
-
-    def parse_content(self, content):
         self._tables = dict()
-        current_table = dict()
-        current_table_name = ""
-        current_uuid = ""
-        current_row = dict()
-        for line in content:
-            line = line.strip()
-            if not line:
-                continue
-
-            table_name, _, keyword = line.partition(' ')
-            if keyword == "table":
-                # New Table, save old row and table
-                if current_uuid != "":
-                    current_table[current_row['_uuid']] = current_row
-                    current_uuid = ""
-
-                if current_table_name != "":
-                    self._tables[current_table_name] = current_table
-
-                current_table_name = table_name
-                current_table = dict()
-
-            else:
-                column, _, value = line.partition(':')
-                column = column.strip()
-                value = value.strip()
-                converted = self._convert_value(value)
-
-                if not value or not column:
-                    raise SkipException("Wrong format")
-
-                if column == '_uuid':
-                    # New rowect, save old row if any
-                    if current_uuid != "":
-                        current_table[current_row['_uuid']] = current_row
-
-                    current_uuid = converted
-                    current_row = dict()
-
-                current_row[column] = converted
+        self._name = ""
+        super(OVSDBParser, self).__init__(*args, **kwargs)
 
     @property
     def tables(self):
@@ -86,6 +24,13 @@ class OVSDBParser(CommandParser):
         (dict): Returns all the tables
         """
         return self._tables
+
+    @property
+    def name(self):
+        """
+        (string): Returns the database name
+        """
+        return self._name
 
     def table_list(self):
         """
@@ -133,6 +78,78 @@ class OVSDBParser(CommandParser):
         if table:
             return list(filter(function, table.values()))
         return []
+
+class OVSDBListParser(OVSDBParser):
+    """
+    Input example:
+    ==============
+    AutoAttach table
+
+    Bridge table
+    _uuid               : 45711587-9496-4d14-8dfe-67a8c273e610
+    auto_attach         : []
+    controller          : [65c7f516-5bef-41f1-b633-94d6375fa356]
+    datapath_id         : "000048df37ce6d70"
+    datapath_type       : system
+    datapath_version    : "<unknown>"
+    external_ids        : {bridge-id=br-link}
+    fail_mode           : secure
+    flood_vlans         : []
+    flow_tables         : {}
+    ipfix               : []
+    mcast_snooping_enable: false
+    mirrors             : []
+    name                : br-link
+    netflow             : []
+    other_config        : {mac-table-size="50000"}
+    ports               : [8918bf51-abfa-4b2e-961f-2dca931bf2a8, acb08497-7deb-4ca7-bc9d-d1119dc2d85f, dcf4d708-b4d8-4948-8570-d2a6a05e7949]
+
+
+    """
+    def __init__(self, *args, **kwargs):
+        super(OVSDBListParser, self).__init__(*args, **kwargs)
+
+    def parse_content(self, content):
+        current_table = dict()
+        current_table_name = ""
+        current_uuid = ""
+        current_row = dict()
+        for line in content:
+            line = line.strip()
+            if not line:
+                continue
+
+            table_name, _, keyword = line.partition(' ')
+            if keyword == "table":
+                # New Table, save old row and table
+                if current_uuid != "":
+                    current_table[current_row['_uuid']] = current_row
+                    current_uuid = ""
+
+                if current_table_name != "":
+                    self._tables[current_table_name] = current_table
+
+                current_table_name = table_name
+                current_table = dict()
+
+            else:
+                column, _, value = line.partition(':')
+                column = column.strip()
+                value = value.strip()
+                converted = self._convert_value(value)
+
+                if not value or not column:
+                    raise SkipException("Wrong format")
+
+                if column == '_uuid':
+                    # New rowect, save old row if any
+                    if current_uuid != "":
+                        current_table[current_row['_uuid']] = current_row
+
+                    current_uuid = converted
+                    current_row = dict()
+
+                current_row[column] = converted
 
 
     def _convert_dict(self, value):
@@ -215,7 +232,37 @@ class OVSDBParser(CommandParser):
 
         return value
 
+class OVSDBDumpParser(OVSDBParser):
+    """
+    A parser that reads a OVSDB Dump file.
+    Only the fist database will be parsed. Further databases or transactions will be ignored
+    """
+    def parse_content(self, content):
+        if len(content) < 2:
+            #raise SkipException("Wrong format")
+            raise Exception("Wrong format")
+
+        #First line should be OVSDB CLUSTER {} {}
+        header = content[0]
+        if header[0:13] != "OVSDB CLUSTER":
+            #raise SkipException("Wrong format")
+            raise Exception("Wrong format: {} ".format(header))
+
+        dump = json.loads(content[1])
+        name = dump.get('name')
+        if not name:
+            #raise SkipException("Wrong format")
+            raise Exception("Wrong format")
+
+        prev_data = dump.get('prev_data')
+        if not prev_data or len (prev_data) != 2:
+            #raise SkipException("Wrong format")
+            raise Exception("Wrong format")
+
+        self._tables = prev_data[1]
+
 @parser(ovsdb_dump)
-class OVSVswitchDB(OVSDBParser):
+class OVSVswitchDB(OVSDBListParser):
     def __init__(self, *args, **kwargs):
         super(OVSVswitchDB, self).__init__(*args, **kwargs)
+        self._name = "Open_vSwitch"
