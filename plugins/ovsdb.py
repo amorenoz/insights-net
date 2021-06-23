@@ -260,6 +260,29 @@ class OVSDBDumpParser(OVSDBParser):
             raise Exception("Wrong format")
 
         self._tables = prev_data[1]
+        for table_name, table in self._tables.items():
+            if not isinstance(table, dict):
+                continue
+            for uuid, row in table.items():
+                for column, data in row.items():
+                    # in place replacement
+                    row[column] = self.process_single_field(data)
+
+    def process_single_field(self, data):
+        """
+        Process a single field that can be a map, set or uuid
+        """
+        if isinstance(data, list) and len(data) > 1:
+            if data[0] == "set":
+                return data[1]
+            elif data[0] == "map":
+                return {item[0]: self.process_single_field(item[1]) for item in data[1]}
+            elif data[0] == "uuid":
+                return data[1]
+            else:
+                return data
+        else:
+            return data
 
 @parser(ovsdb_dump)
 class OVSVswitchDB(OVSDBListParser):
