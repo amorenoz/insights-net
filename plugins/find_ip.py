@@ -371,20 +371,14 @@ def find_in_ofctl(addr, ofctls):
             for match, value in flow.get('match').items():
                 # TODO: search on match fields that we know there might be
                 # IP addresses
-                try:
-                    if _compare_ip_or_net(addr, value):
-                        flows.append(flow)
-                except ValueError:
-                    pass
+                if _compare_ip_or_net(addr, value):
+                    flows.append(flow)
 
             for action in flow.get('actions'):
                 # TODO: search on actions params that we know there might be
                 # IP addresses
-                try:
-                    if _compare_ip_or_net(addr, action.get('params')):
-                        flows.append(flow)
-                except ValueError:
-                    pass
+                if _compare_ip_or_net(addr, action.get('params')):
+                    flows.append(flow)
 
         if flows:
             result[ofctl.bridge_name] = flows
@@ -400,19 +394,13 @@ IP_CIDR_RE = re.compile(r"((?<!\d\.)(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?:/\d{1,2})?)
 def list_exact(addr, addr_list):
     for string in addr_list:
         for elem in string.split(' '):
-            try:
-                if _compare_ip_or_net(addr, elem):
-                    return True
-            except ValueError:
-               pass
+            if _compare_ip_or_net(addr, elem):
+                return True
 
     for string in addr_list:
         for elem in string.split(','):
-            try:
-                if _compare_ip_or_net(addr, elem):
-                    return True
-            except ValueError:
-               pass
+            if _compare_ip_or_net(addr, elem):
+                return True
     return False
 
 def dict_regexp(addr, str_dict):
@@ -430,11 +418,8 @@ def regexp_value(addr, value):
         return False
 
     for match in IP_CIDR_RE.findall(value):
-        try:
-            if _compare_ip_or_net(addr, match):
-                return True
-        except ValueError:
-            pass
+        if _compare_ip_or_net(addr, match):
+            return True
     return False
 
 def exact(addr, string):
