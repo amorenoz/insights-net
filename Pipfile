@@ -13,6 +13,7 @@ colorama = "*"
 tabulate = "*"
 insights-core = {editable = true, ref = "commands", git = "https://github.com/amorenoz/insights-core.git"}
 rich = "*"
+ovsdbapp = "*"
 
 [dev-packages]
 pylint = "*"

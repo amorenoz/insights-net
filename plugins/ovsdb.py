@@ -1,11 +1,23 @@
+import glob
 import json
-from insights import CommandParser, parser, Parser
-from insights.core.spec_factory import simple_file
+import logging
+import os
+import os.path
+import stat
+
+from insights import CommandParser, parser, Parser, datasource
+from insights.core import dr
+from insights.core.spec_factory import simple_file, ContentProvider
 from insights.parsers import SkipException
-from insights.core.context import SosArchiveContext
+from insights.core.context import SosArchiveContext, HostArchiveContext
+
+from ovsdbapp.backend.ovs_idl import Backend
+from ovsdbapp.backend.ovs_idl import connection
 
 ovsdb_dump = simple_file("/sos_commands/openvswitch/ovsdb-client_-f_list_dump",
                          context=SosArchiveContext)
+
+log = logging.getLogger(__name__)
 
 
 class OVSDBParser(Parser):
@@ -42,7 +54,7 @@ class OVSDBParser(Parser):
         """
         (list): Returns the list columns in a particular table
         """
-        first = self._tables.get(next(self._tables.get(table).keys()))
+        first = self._tables.get(next(list(self._tables.get(table).keys())))
         return first.keys()
 
     def table(self, name):
@@ -78,6 +90,7 @@ class OVSDBParser(Parser):
         if table:
             return list(filter(function, table.values()))
         return []
+
 
 class OVSDBListParser(OVSDBParser):
     """
@@ -151,7 +164,6 @@ class OVSDBListParser(OVSDBParser):
 
                 current_row[column] = converted
 
-
     def _convert_dict(self, value):
         """
         Convert a dictionary field value
@@ -168,7 +180,7 @@ class OVSDBListParser(OVSDBParser):
             key = key.strip('"')
 
             item = None
-            new_dict_value=""
+            new_dict_value = ""
 
             if rest[0] == '"':
                 start = 1
@@ -178,13 +190,13 @@ class OVSDBListParser(OVSDBParser):
                         # Error, we did not find the end of the string
                         raise Exception("Wrong format %s" % value)
 
-                    if rest[pos-1] != '\\':
+                    if rest[pos - 1] != '\\':
                         # found a non escaped "
                         item = rest[1:pos]
-                        new_dict_value = rest[pos+1:].strip(', ')
+                        new_dict_value = rest[pos + 1:].strip(', ')
                         break
 
-                    start = pos+1
+                    start = pos + 1
             else:
                 (item, comma, new_dict_value) = rest.partition(', ')
                 if not comma:
@@ -232,6 +244,7 @@ class OVSDBListParser(OVSDBParser):
 
         return value
 
+
 class OVSDBDumpParser(OVSDBParser):
     """
     A parser that reads a OVSDB Dump file.
@@ -255,7 +268,7 @@ class OVSDBDumpParser(OVSDBParser):
             raise Exception("Wrong format")
 
         prev_data = dump.get('prev_data')
-        if not prev_data or len (prev_data) != 2:
+        if not prev_data or len(prev_data) != 2:
             #raise SkipException("Wrong format")
             raise Exception("Wrong format")
 
@@ -276,7 +289,10 @@ class OVSDBDumpParser(OVSDBParser):
             if data[0] == "set":
                 return data[1]
             elif data[0] == "map":
-                return {item[0]: self.process_single_field(item[1]) for item in data[1]}
+                return {
+                    item[0]: self.process_single_field(item[1])
+                    for item in data[1]
+                }
             elif data[0] == "uuid":
                 return data[1]
             else:
@@ -284,8 +300,150 @@ class OVSDBDumpParser(OVSDBParser):
         else:
             return data
 
+
 @parser(ovsdb_dump)
 class OVSVswitchDB(OVSDBListParser):
     def __init__(self, *args, **kwargs):
         super(OVSVswitchDB, self).__init__(*args, **kwargs)
         self._name = "Open_vSwitch"
+
+
+class ovsdb_servers(object):
+    """ For each valid OVSDB connection found, creates a datasource that
+    connects to such server and dumps all its content into a dictionary
+
+    Metadata:
+        extra_patters: extra patterns can be provided as metadata
+
+    Args:
+        patterns (str or [str]): file patterns of unix sockets
+        schema
+
+    """
+    def __init__(self, patterns, schema, context=None, deps=[], **kwargs):
+        if not isinstance(patterns, (list, set)):
+            patterns = [patterns]
+        self.patterns = patterns
+
+        self.schema = schema
+        self.context = context or HostArchiveContext
+        self.__name__ = self.__class__.__name__
+        datasource(self.context, *deps, **kwargs)(self)
+
+    def __call__(self, broker):
+        """
+        Called by the plugin to extract the data
+
+        Find all the matched patterns and return the data
+        """
+        if isinstance(self.context, list):
+            ctx = dr.first_of(self.context, broker)
+        else:
+            ctx = broker.get(self.context)
+
+        results = []
+        root = ctx.root
+
+        for pattern in self.patterns:
+            pattern = ctx.locate_path(pattern)
+            for path in sorted(
+                    glob.glob(os.path.join(root, pattern.lstrip('/')))):
+                if os.path.isdir(path) or not stat.S_ISSOCK(
+                        os.stat(path).st_mode):
+                    continue
+                log.debug("ovsdb socket found at %s" % path)
+
+                try:
+                    client = OVSDBClient(path, self.schema)
+                except Exception as e:
+                    log.debug(
+                        "ovsdb does not contain a database with schema %s",
+                        self.schema)
+                    continue
+                results.append(client)
+
+        return results
+
+
+class OVSDBClient():
+    """ OVSDBClient is a Datasource that connects to a running ovsdb-server,
+    dumps all its tables. Unlike other Datasources, OVSDBClient is does not
+    expose its content as a list of strings, but as a dictionary of tables.
+    This is because the internal use of ovsdbapp who already parses the content
+
+    In order to be used by a Parser it has the following attributes:
+        relative_path: the relative_path to the ovsdb socket that is used to
+            interact with the ovsdb server
+        path: full path of the socket file
+        content: the dictionary of tables with the following format:
+            {
+                "TableName_1" {
+                    "uuid_0" : {
+                        "column_name_1": _value_,
+                        "column_name_2": _value_
+                        ...
+                    }
+                    "uuid_1" : {
+                        "column_name_1": _value_,
+                        "column_name_2": _value_
+                        ...
+                    }
+                    ...
+                }
+                "TableName_2" {
+                ...
+                }
+            }
+
+    Args:
+        relative_path: relative_path to the db socket file
+        schema: the database name which shall be dumped
+
+    Raises:
+        Exception if the database is not pressent in the ovsdb-server
+        instance
+    """
+    def __init__(self, relative_path, schema, root="/"):
+        self._relative_path = relative_path
+        self._root = root
+        self.idl = connection.OvsdbIdl.from_server("unix:" + self.path, schema)
+        self.conn = connection.Connection(idl=self.idl, timeout=3)
+        self.api = Backend(self.conn)
+        self._name = schema
+        self._content = None
+        self._exception = None
+
+    @property
+    def path(self):
+        return os.path.join(self._root, self.relative_path)
+
+    @property
+    def relative_path(self):
+        return self._relative_path
+
+    @property
+    def content(self):
+        if self._exception:
+            raise self._exception
+
+        if self._content is None:
+            try:
+                self._content = self._dump_tables()
+            except Exception as ex:
+                self._exception = ex
+                raise
+
+        return self._content
+
+    def _dump_tables(self):
+        result = {}
+        for table in self.api.idl.tables.keys():
+            # Extract rows and placed them as
+            # "tableName" : {
+            #    "uuid" : { rowData }
+            # }
+            result[table] = {
+                str(row['_uuid']): row
+                for row in self.api.db_list(table).execute()
+            }
+        return result
