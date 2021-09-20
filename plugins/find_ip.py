@@ -8,16 +8,19 @@ from insights.parsers.iptables import IPTabPermanent, IP6TabPermanent, IPTables,
 from insights.parsers.netstat import Netstat
 
 from .ip import NetNsIpAddr, NetNsIpAddr, NetNsIpRoute
-from .ofctl import OVSOfctlFlows
+from .ofctl import SosOvsOfctlFlows
 from .ovn import OVNNBDump, OVNSBDump
+from .ocp  import OCPPods, OCPServices, OCPNetConf
+from .ocp_net import OCPOfclDumpFlows, OCPNB, OCPSB
 
 
 @command(optional=[
     IpAddr, RouteDevices, IpNeighShow, Hosts, IPTabPermanent, IP6TabPermanent,
-    IP6Tables, IPTables, Netstat, NetNsIpAddr, NetNsIpRoute, OVSOfctlFlows,
-    OVNNBDump, OVNSBDump])
+    IP6Tables, IPTables, Netstat, NetNsIpAddr, NetNsIpRoute, SosOvsOfctlFlows,
+    OCPOfclDumpFlows, OVNNBDump, OVNSBDump, OCPNB, OCPSB, OCPPods, OCPServices, OCPNetConf])
 def find_ip(params, ipaddr, iproute, ipneigh, hosts, iptperm, ip6tperm, ip6tables,
-            iptables, netstat, nsipaddr, nsiproute, ofctl, ovn_nb, ovn_sb):
+            iptables, netstat, nsipaddr, nsiproute, ofctl, ocp_ofctl, ovn_nb,
+            ovn_sb, ocp_nb, ocp_sb, pods, services, ocpnetconf):
     """
     Find an IP address in a number of possible places.
     Returns a dict with each key being the name of the place where a match was
@@ -69,18 +72,31 @@ def find_ip(params, ipaddr, iproute, ipneigh, hosts, iptperm, ip6tperm, ip6table
         result["netstat"] = netstat_matches
 
     #Find in ovs ofctl dumps
-    ofctl_matches = find_in_ofctl(ip_addr, ofctl)
+    ofctl_matches = find_in_ofctl(ip_addr, ofctl or ocp_ofctl)
     if ofctl_matches:
         result["ofctl"] = ofctl_matches
 
-    #Find in ovs ovn
-    ovn_nb_matches = find_in_nb(ip_addr, ovn_nb)
+    #Find in OVN
+    ovn_nb_matches = find_in_nb(ip_addr, ovn_nb or ocp_nb)
     if ovn_nb_matches:
         result["nb"] = ovn_nb_matches
 
-    ovn_sb_matches = find_in_sb(ip_addr, ovn_sb)
+    ovn_sb_matches = find_in_sb(ip_addr, ovn_sb or ocp_sb)
     if ovn_sb_matches:
         result["sb"] = ovn_sb_matches
+
+    #Find in OCP
+    pods_matches = find_in_pods(ip_addr, pods)
+    if pods_matches:
+        result["pods"] = pods_matches
+
+    services_matches = find_in_services(ip_addr, services)
+    if services_matches:
+        result["services"] = services_matches
+
+    ocp_net_matches = find_in_ocpnetconf(ip_addr, ocpnetconf)
+    if ocp_net_matches:
+        result["ocp_net"] = ocp_net_matches
 
     return result
 
@@ -285,9 +301,13 @@ def _compare_ip_or_net(addr, match):
         if addr in net:
             return True
     except ValueError:
+        pass
+    try:
         ip = ipaddress.ip_address(match)
         if addr == ip:
             return True
+    except ValueError:
+        pass
 
     return False
 
@@ -353,20 +373,14 @@ def find_in_ofctl(addr, ofctls):
             for match, value in flow.get('match').items():
                 # TODO: search on match fields that we know there might be
                 # IP addresses
-                try:
-                    if _compare_ip_or_net(addr, value):
-                        flows.append(flow)
-                except ValueError:
-                    pass
+                if _compare_ip_or_net(addr, value):
+                    flows.append(flow)
 
             for action in flow.get('actions'):
                 # TODO: search on actions params that we know there might be
                 # IP addresses
-                try:
-                    if _compare_ip_or_net(addr, action.get('params')):
-                        flows.append(flow)
-                except ValueError:
-                    pass
+                if _compare_ip_or_net(addr, action.get('params')):
+                    flows.append(flow)
 
         if flows:
             result[ofctl.bridge_name] = flows
@@ -380,27 +394,27 @@ def find_in_ofctl(addr, ofctls):
 IP_CIDR_RE = re.compile(r"((?<!\d\.)(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?:/\d{1,2})?)")
 
 def list_exact(addr, addr_list):
+    if not addr_list:
+        return False
+
     for string in addr_list:
         for elem in string.split(' '):
-            try:
-                if _compare_ip_or_net(addr, elem):
-                    return True
-            except ValueError:
-               pass
+            if _compare_ip_or_net(addr, elem):
+                return True
 
     for string in addr_list:
         for elem in string.split(','):
-            try:
-                if _compare_ip_or_net(addr, elem):
-                    return True
-            except ValueError:
-               pass
+            if _compare_ip_or_net(addr, elem):
+                return True
     return False
 
 def dict_regexp(addr, str_dict):
     """
     FIXME: IPV6
     """
+    if not str_dict:
+        return False
+
     for key, value in str_dict.items():
         if regexp_value(addr, value):
             return True
@@ -412,11 +426,8 @@ def regexp_value(addr, value):
         return False
 
     for match in IP_CIDR_RE.findall(value):
-        try:
-            if _compare_ip_or_net(addr, match):
-                return True
-        except ValueError:
-            pass
+        if _compare_ip_or_net(addr, match):
+            return True
     return False
 
 def exact(addr, string):
@@ -445,12 +456,16 @@ def find_in_nb(addr, ovndb):
     result = {}
     if not ovndb:
         return
+    if isinstance(ovndb, list):
+        ovndb = ovndb[0]
     return find_in_ovn(addr, ovndb, NBFIELDS)
 
 def find_in_sb(addr, ovndb):
     result = {}
     if not ovndb:
         return
+    if isinstance(ovndb, list):
+        ovndb = ovndb[0]
     return find_in_ovn(addr, ovndb, SBFIELDS)
 
 def find_in_ovn(addr, ovndb, fields):
@@ -468,3 +483,87 @@ def find_in_ovn(addr, ovndb, fields):
 
     return result
 
+def find_in_pods(addr, pod_data):
+    return find_in_ocp_namespaces(addr, pod_data, "status", "podIP")
+
+def find_in_services(addr, service_data):
+    return find_in_ocp_namespaces(addr, service_data, "spec", "clusterIPs")
+
+def find_in_ocp_namespaces(addr, ocp_data, *field_list):
+    result = []
+    if not ocp_data:
+        return
+
+    for resource_list in ocp_data:
+        for item in resource_list.get('items'):
+            match = find_in_ocp(addr, item, *field_list)
+            if match:
+                match["namespace"] = resource_list.namespace
+                result.append(match)
+    return result
+
+def find_in_ocpnetconf(addr, ocp_net):
+    result = []
+    if not ocp_net:
+        return
+
+    for item in ocp_net.get('items'):
+        match = find_in_ocp(addr, item, "spec", 'clusterNetwork')
+        if match:
+            result.append(match)
+        match = find_in_ocp(addr, item, "spec", 'serviceNetwork')
+        if match:
+            result.append(match)
+    return result
+
+def find_in_ocp(addr, item, *field_list):
+    """
+    Finds an IP address in a yaml parser item
+    Args:
+        addr (IpAddr): the address to look for
+        item (YAMLParser): the item to look nto
+        *field_list (list(str)): a list of fields used to index the item
+    """
+    # Navigate to the specific field
+    elem = item
+    for f in field_list:
+        elem = elem.get(f)
+        if not elem:
+            return None
+
+    match, subfield = find_in_field(addr, elem)
+
+    if match:
+        return  {
+            "name": item.get('metadata').get('name') if item.get('metadata') else "unknown",
+            "full": item,
+            "field": field_list[-1],
+            "match": elem,
+        }
+    else:
+        return None
+
+def find_in_field(addr, field):
+    """
+    Looks for an IP address in a field that can be a string, list or a dictionary
+    Args:
+        addr(IpAddr): the address to look for
+        field (dict or str): the field to look into
+    Returns:
+        (bool, optional(string)): a tuple. First value, if matched. Second, if field is
+        a dictionary, the key where it matched
+    """
+    if isinstance(field, dict):
+        for k, v in field.items():
+            if v and _compare_ip_or_net(addr, v):
+                return (True, k)
+    elif isinstance(field, list):
+        for elem in field:
+            match, subfield = find_in_field(addr, elem)
+            if match:
+                return (True, subfield)
+    elif isinstance(field, str):
+        if field and _compare_ip_or_net(addr, field):
+            return (True, None)
+
+    return False, None
