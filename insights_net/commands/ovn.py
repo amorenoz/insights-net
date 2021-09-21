@@ -3,9 +3,10 @@ from rich.console import Console
 from rich.table import Table
 from rich.pretty import Pretty
 
-from insights_cmd.main import maincli
+from insights_net.main import maincli
 
-@maincli.group(name='ovn')
+
+@maincli.group(name="ovn")
 @click.pass_obj
 def ovn(ctx):
     """
@@ -13,20 +14,22 @@ def ovn(ctx):
     """
     pass
 
-@ovn.group(name='nb')
+
+@ovn.group(name="nb")
 @click.pass_obj
 def nb(ctx):
-    setattr(ctx, 'db', 'OVNNBDump')
+    setattr(ctx, "db", "OVNNBDump")
 
-@ovn.group(name='sb')
+
+@ovn.group(name="sb")
 @click.pass_obj
 def sb(ctx):
-    setattr(ctx, 'db', 'OVNSBDump')
+    setattr(ctx, "db", "OVNSBDump")
     pass
 
 
-@nb.command(name='list')
-@click.argument('table', required=False, nargs=1)
+@nb.command(name="list")
+@click.argument("table", required=False, nargs=1)
 @click.pass_obj
 def nb_list(ctx, table):
     """
@@ -34,8 +37,9 @@ def nb_list(ctx, table):
     """
     return list_cmd(ctx, table)
 
-@sb.command(name='list')
-@click.argument('table', required=False, nargs=1)
+
+@sb.command(name="list")
+@click.argument("table", required=False, nargs=1)
 @click.pass_obj
 def sb_list(ctx, table):
     """
@@ -43,12 +47,13 @@ def sb_list(ctx, table):
     """
     return list_cmd(ctx, table)
 
+
 def list_cmd(ctx, table):
     """
     List the content of a DB Tabel
     """
     if not table:
-        tables = ctx.client.evaluate(ctx.db, 'table_list()')
+        tables = ctx.client.evaluate(ctx.db, "table_list()")
         if not tables:
             print("OVN data not available")
             return
@@ -59,7 +64,7 @@ def list_cmd(ctx, table):
 
             print("Archive: " + archive)
             print("*" * (9 + len(archive)))
-            if isinstance (host_data, str):
+            if isinstance(host_data, str):
                 print(host_data)
             else:
                 console = Console()
@@ -78,7 +83,7 @@ def list_cmd(ctx, table):
 
         print("Archive: " + archive)
         print("*" * (9 + len(archive)))
-        if isinstance (host_data, str):
+        if isinstance(host_data, str):
             print(host_data)
         else:
             print_results(host_data, table)
@@ -101,9 +106,10 @@ def print_results(table_data, table):
 
     console.print(tt)
 
-@nb.command(name='get')
-@click.argument('table', required=True, nargs=1)
-@click.argument('uuid', required=True, nargs=1)
+
+@nb.command(name="get")
+@click.argument("table", required=True, nargs=1)
+@click.argument("uuid", required=True, nargs=1)
 @click.pass_obj
 def nb_get(ctx, table, uuid):
     """
@@ -111,9 +117,10 @@ def nb_get(ctx, table, uuid):
     """
     return get_cmd(ctx, table, uuid)
 
-@sb.command(name='get')
-@click.argument('table', required=True, nargs=1)
-@click.argument('uuid', required=True, nargs=1)
+
+@sb.command(name="get")
+@click.argument("table", required=True, nargs=1)
+@click.argument("uuid", required=True, nargs=1)
 @click.pass_obj
 def sb_get(ctx, table, uuid):
     """
@@ -121,12 +128,15 @@ def sb_get(ctx, table, uuid):
     """
     return get_cmd(ctx, table, uuid)
 
+
 def get_cmd(ctx, table, uuid):
-    data = ctx.client.evaluate('OVNNBDump', 'filter("{}", lambda x: x.get("_uuid").startswith("{}"))'.format(table, uuid))
+    data = ctx.client.evaluate(
+        "OVNNBDump",
+        'filter("{}", lambda x: x.get("_uuid").startswith("{}"))'.format(table, uuid),
+    )
     if not data:
         print("OVN data not available")
         return
 
     console = Console()
     console.print(data)
-

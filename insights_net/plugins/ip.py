@@ -12,11 +12,13 @@ from insights.core.spec_factory import glob_file
 
 ip_netns_ipaddr = glob_file(
     "/sos_commands/networking/ip_netns_exec_*_ip_address_show",
-    context=SosArchiveContext)
+    context=SosArchiveContext,
+)
 
 ip_netns_iproute = glob_file(
     "/sos_commands/networking/ip_netns_exec_*_ip_route_show_table_all",
-    context=SosArchiveContext)
+    context=SosArchiveContext,
+)
 
 
 @parser(ip_netns_ipaddr)
@@ -24,6 +26,7 @@ class NetNsIpAddr(IpAddr):
     """
     Extends IpAddr to also parse all namespaces
     """
+
     FILE_RE_STR = "ip_netns_exec_([\w_-]+)_ip_address_show"
     file_re = re.compile(FILE_RE_STR)
 
@@ -49,6 +52,7 @@ class NetNsIpRoute(RouteDevices):
     """
     Extends RouteDevices to also parse all namespaces
     """
+
     FILE_RE_STR = "ip_netns_exec_([\w_-]+)_ip_route_show_table_all"
     file_re = re.compile(FILE_RE_STR)
 

@@ -14,8 +14,9 @@ from insights.core.context import SosArchiveContext, HostArchiveContext
 from ovsdbapp.backend.ovs_idl import Backend
 from ovsdbapp.backend.ovs_idl import connection
 
-ovsdb_dump = simple_file("/sos_commands/openvswitch/ovsdb-client_-f_list_dump",
-                         context=SosArchiveContext)
+ovsdb_dump = simple_file(
+    "/sos_commands/openvswitch/ovsdb-client_-f_list_dump", context=SosArchiveContext
+)
 
 log = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ class OVSDBParser(Parser):
     Base class for OVSDB data
     Expects _tables to have
     """
+
     def __init__(self, *args, **kwargs):
         self._tables = dict()
         self._name = ""
@@ -78,8 +80,7 @@ class OVSDBParser(Parser):
         """
         table = self._tables.get(table)
         if table:
-            return list(
-                (row for row in table.values() if row.get(column) == value))
+            return list((row for row in table.values() if row.get(column) == value))
         return []
 
     def filter(self, table, function):
@@ -119,6 +120,7 @@ class OVSDBListParser(OVSDBParser):
 
 
     """
+
     def __init__(self, *args, **kwargs):
         super(OVSDBListParser, self).__init__(*args, **kwargs)
 
@@ -132,11 +134,11 @@ class OVSDBListParser(OVSDBParser):
             if not line:
                 continue
 
-            table_name, _, keyword = line.partition(' ')
+            table_name, _, keyword = line.partition(" ")
             if keyword == "table":
                 # New Table, save old row and table
                 if current_uuid != "":
-                    current_table[current_row['_uuid']] = current_row
+                    current_table[current_row["_uuid"]] = current_row
                     current_uuid = ""
 
                 if current_table_name != "":
@@ -146,7 +148,7 @@ class OVSDBListParser(OVSDBParser):
                 current_table = dict()
 
             else:
-                column, _, value = line.partition(':')
+                column, _, value = line.partition(":")
                 column = column.strip()
                 value = value.strip()
                 converted = self._convert_value(value)
@@ -154,10 +156,10 @@ class OVSDBListParser(OVSDBParser):
                 if not value or not column:
                     raise SkipException("Wrong format")
 
-                if column == '_uuid':
+                if column == "_uuid":
                     # New rowect, save old row if any
                     if current_uuid != "":
-                        current_table[current_row['_uuid']] = current_row
+                        current_table[current_row["_uuid"]] = current_row
 
                     current_uuid = converted
                     current_row = dict()
@@ -170,10 +172,10 @@ class OVSDBListParser(OVSDBParser):
         e.g:
         {classless_static_route="{169.254.169.254/32,192.168.199.2, 0.0.0.0/0,192.168.199.1}", dns_server="{172.16.0.1, 10.0.0.1}", domain_name="\"openstackgate.local\"", lease_time="43200", mtu="1442", router="192.168.199.1", server_id="192.168.199.1", server_mac="fa:16:3e:0b:ba:9d"}
         """
-        dict_value = value.strip('{')
+        dict_value = value.strip("{")
         result = {}
         while True:
-            (key, found, rest) = dict_value.partition('=')
+            (key, found, rest) = dict_value.partition("=")
             if not found:
                 break
 
@@ -190,17 +192,17 @@ class OVSDBListParser(OVSDBParser):
                         # Error, we did not find the end of the string
                         raise Exception("Wrong format %s" % value)
 
-                    if rest[pos - 1] != '\\':
+                    if rest[pos - 1] != "\\":
                         # found a non escaped "
                         item = rest[1:pos]
-                        new_dict_value = rest[pos + 1:].strip(', ')
+                        new_dict_value = rest[pos + 1 :].strip(", ")
                         break
 
                     start = pos + 1
             else:
-                (item, comma, new_dict_value) = rest.partition(', ')
+                (item, comma, new_dict_value) = rest.partition(", ")
                 if not comma:
-                    (item, curly, new_dict_value) = rest.partition('}')
+                    (item, curly, new_dict_value) = rest.partition("}")
                     if not curly:
                         raise Exception("Wrong format %s" % value)
 
@@ -210,13 +212,13 @@ class OVSDBListParser(OVSDBParser):
         return result
 
     def _convert_value(self, value):
-        if value[0] == '[':
+        if value[0] == "[":
             converted = []
-            for val in value.strip('[]').split(', '):
+            for val in value.strip("[]").split(", "):
                 if val:
                     converted.append(self._convert_single_value(val))
             return converted
-        elif value[0] == '{':
+        elif value[0] == "{":
             converted = self._convert_dict(value)
         else:
             converted = self._convert_single_value(value)
@@ -250,26 +252,27 @@ class OVSDBDumpParser(OVSDBParser):
     A parser that reads a OVSDB Dump file.
     Only the fist database will be parsed. Further databases or transactions will be ignored
     """
+
     def parse_content(self, content):
         if len(content) < 2:
-            #raise SkipException("Wrong format")
+            # raise SkipException("Wrong format")
             raise Exception("Wrong format")
 
-        #First line should be OVSDB CLUSTER {} {}
+        # First line should be OVSDB CLUSTER {} {}
         header = content[0]
         if header[0:13] != "OVSDB CLUSTER":
-            #raise SkipException("Wrong format")
+            # raise SkipException("Wrong format")
             raise Exception("Wrong format: {} ".format(header))
 
         dump = json.loads(content[1])
-        name = dump.get('name')
+        name = dump.get("name")
         if not name:
-            #raise SkipException("Wrong format")
+            # raise SkipException("Wrong format")
             raise Exception("Wrong format")
 
-        prev_data = dump.get('prev_data')
+        prev_data = dump.get("prev_data")
         if not prev_data or len(prev_data) != 2:
-            #raise SkipException("Wrong format")
+            # raise SkipException("Wrong format")
             raise Exception("Wrong format")
 
         self._tables = prev_data[1]
@@ -289,10 +292,7 @@ class OVSDBDumpParser(OVSDBParser):
             if data[0] == "set":
                 return data[1]
             elif data[0] == "map":
-                return {
-                    item[0]: self.process_single_field(item[1])
-                    for item in data[1]
-                }
+                return {item[0]: self.process_single_field(item[1]) for item in data[1]}
             elif data[0] == "uuid":
                 return data[1]
             else:
@@ -309,7 +309,7 @@ class OVSVswitchDB(OVSDBListParser):
 
 
 class ovsdb_servers(object):
-    """ For each valid OVSDB connection found, creates a datasource that
+    """For each valid OVSDB connection found, creates a datasource that
     connects to such server and dumps all its content into a dictionary
 
     Metadata:
@@ -320,6 +320,7 @@ class ovsdb_servers(object):
         schema
 
     """
+
     def __init__(self, patterns, schema, context=None, deps=[], **kwargs):
         if not isinstance(patterns, (list, set)):
             patterns = [patterns]
@@ -346,10 +347,8 @@ class ovsdb_servers(object):
 
         for pattern in self.patterns:
             pattern = ctx.locate_path(pattern)
-            for path in sorted(
-                    glob.glob(os.path.join(root, pattern.lstrip('/')))):
-                if os.path.isdir(path) or not stat.S_ISSOCK(
-                        os.stat(path).st_mode):
+            for path in sorted(glob.glob(os.path.join(root, pattern.lstrip("/")))):
+                if os.path.isdir(path) or not stat.S_ISSOCK(os.stat(path).st_mode):
                     continue
                 log.debug("ovsdb socket found at %s" % path)
 
@@ -357,16 +356,16 @@ class ovsdb_servers(object):
                     client = OVSDBClient(path, self.schema)
                 except Exception as e:
                     log.debug(
-                        "ovsdb does not contain a database with schema %s",
-                        self.schema)
+                        "ovsdb does not contain a database with schema %s", self.schema
+                    )
                     continue
                 results.append(client)
 
         return results
 
 
-class OVSDBClient():
-    """ OVSDBClient is a Datasource that connects to a running ovsdb-server,
+class OVSDBClient:
+    """OVSDBClient is a Datasource that connects to a running ovsdb-server,
     dumps all its tables. Unlike other Datasources, OVSDBClient is does not
     expose its content as a list of strings, but as a dictionary of tables.
     This is because the internal use of ovsdbapp who already parses the content
@@ -403,6 +402,7 @@ class OVSDBClient():
         Exception if the database is not pressent in the ovsdb-server
         instance
     """
+
     def __init__(self, relative_path, schema, root="/"):
         self._relative_path = relative_path
         self._root = root
@@ -443,7 +443,6 @@ class OVSDBClient():
             #    "uuid" : { rowData }
             # }
             result[table] = {
-                str(row['_uuid']): row
-                for row in self.api.db_list(table).execute()
+                str(row["_uuid"]): row for row in self.api.db_list(table).execute()
             }
         return result

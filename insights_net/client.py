@@ -80,7 +80,9 @@ def krun_command(name, *args, **kwargs):
                 result[path] = {name}{subargs}
 
         kresponse(result)
-        """.format(name=name, subargs="." + subargs if subargs else "")
+        """.format(
+            name=name, subargs="." + subargs if subargs else ""
+        )
 
         return self.__run(name, command)
 
@@ -90,10 +92,13 @@ def krun_command(name, *args, **kwargs):
         """
         command = "krun_command('{name}', {kwargs})".format(
             name=name,
-            kwargs=",".join([
-                "=".join([key, self._prepare_arg(kwargs[key])])
-                for key in kwargs.keys()
-            ]))
+            kwargs=",".join(
+                [
+                    "=".join([key, self._prepare_arg(kwargs[key])])
+                    for key in kwargs.keys()
+                ]
+            ),
+        )
         return self._run(name, command)
 
     def available(self):
@@ -115,7 +120,7 @@ def krun_command(name, *args, **kwargs):
 
     def _prepare_arg(self, arg):
         if isinstance(arg, str):
-            return ("'{}'".format(arg))
+            return "'{}'".format(arg)
 
     def _run(self, name, cmd):
         cmd = "kresponse({})".format(cmd)
@@ -132,13 +137,12 @@ def krun_command(name, *args, **kwargs):
                 print(msg)
             if msg_type == "stream":
                 stream = getattr(sys, content["name"])
-                stream.write(content['text'])
+                stream.write(content["text"])
             elif msg_type == "execute_result":
-                data = content["data"].get("application/json",
-                                           "").get("response")
+                data = content["data"].get("application/json", "").get("response")
                 self.response[name] = data
             elif msg_type == "status":
-                self.status[name] = content.get('execution_state', 'unknown')
+                self.status[name] = content.get("execution_state", "unknown")
             elif msg_type == "error":
                 print("\n".join(content["traceback"]), file=sys.stderr)
 

@@ -2,8 +2,10 @@ import re
 import sys
 from abc import ABC, abstractmethod
 
+
 class DecodeError(Exception):
     pass
+
 
 class FieldDecoder(ABC):
     @abstractmethod
@@ -74,7 +76,7 @@ class DataFieldDecoder(FieldDecoder):
 
     @classmethod
     def decode_field(cls, string):
-        return bytes.fromhex(string.replace('.', ''))
+        return bytes.fromhex(string.replace(".", ""))
 
 
 a = DataFieldDecoder()
@@ -113,13 +115,11 @@ class ActionDecoder(ABC):
 
 
 class SingleKeyValueDecoder(ActionDecoder):
-    def __init__(self,
-                 keyword,
-                 regexp,
-                 field_decoder=SimpleStringFieldDecoder):
+    def __init__(self, keyword, regexp, field_decoder=SimpleStringFieldDecoder):
         self._keyword = keyword
         self._regex = re.compile(
-            regexp.format(self._keyword, field_decoder.regexp_str()))
+            regexp.format(self._keyword, field_decoder.regexp_str())
+        )
         self._field_decoder = field_decoder
 
     def regexp(self):
@@ -135,6 +135,7 @@ class ColonDecoder(SingleKeyValueDecoder):
     """
     Decodes actions such as 'keyword:argument'
     """
+
     REGEXP = r"{}:({})"
 
     def __init__(self, keyword, field_decoder=SimpleStringFieldDecoder):
@@ -145,11 +146,11 @@ class ParenthesisDecoder(SingleKeyValueDecoder):
     """
     Decodes actions such as 'keyword(argument)'
     """
+
     REGEXP = r"{}\(({})\)"
 
     def __init__(self, keyword, field_decoder=SimpleStringFieldDecoder):
-        super(ParenthesisDecoder, self).__init__(keyword, self.REGEXP,
-                                                 field_decoder)
+        super(ParenthesisDecoder, self).__init__(keyword, self.REGEXP, field_decoder)
 
 
 class KeywordDecoder(ActionDecoder):
@@ -165,7 +166,7 @@ class KeywordDecoder(ActionDecoder):
 
 
 # TODO: Convert into parenthesyslist instance
-#class CTDecoder(ActionDecoder):
+# class CTDecoder(ActionDecoder):
 #    @classmethod
 #    def regexp(cls):
 #        reg = r'ct\((commit)?,?(force)?,?(table=(\d+))?,?(zone=(\w+)\[(\d+)?(..)?(\d+)?\])?,?(zone=(\d+))?,?(nat)?,?({})?,?(exec\((.*)\))?\)'.format(
@@ -225,10 +226,11 @@ class NatDecoder(ActionDecoder, FieldDecoder):
     """
     Nat can, itself, be an action or a field in the "ct" action
     """
-    REGEXP_GROUP = r'nat\((\w+)?(=[\w\d\.:\[\]-]*)?,?(\w+)?,?(\w+)?,?(\w+)?\)'
-    REGEXP_FIELD = r'nat\((?:\w+)?(?:=[\w\d\.:\[\]-]*)?,?(?:\w+)?,?(?:\w+)?,?(?:\w+)?\)'
+
+    REGEXP_GROUP = r"nat\((\w+)?(=[\w\d\.:\[\]-]*)?,?(\w+)?,?(\w+)?,?(\w+)?\)"
+    REGEXP_FIELD = r"nat\((?:\w+)?(?:=[\w\d\.:\[\]-]*)?,?(?:\w+)?,?(?:\w+)?,?(?:\w+)?\)"
     _field_regex = re.compile(REGEXP_GROUP)
-    _port_regex = re.compile('(?:[\w.:\]\[]+)(?:-[\w.:\]\[]+)?(?::(\d+-\d+))')
+    _port_regex = re.compile("(?:[\w.:\]\[]+)(?:-[\w.:\]\[]+)?(?::(\d+-\d+))")
     # Action Decoder Implementatio'n
     @classmethod
     def regexp(cls):
@@ -270,21 +272,21 @@ class NatDecoder(ActionDecoder, FieldDecoder):
             port_match = cls._port_regex.match(addr_str)
             if port_match is not None:
                 ports = port_match.group(1)
-                port_range = ports.split('-')
-                params['port_min'] = port_range[0]
+                port_range = ports.split("-")
+                params["port_min"] = port_range[0]
                 if len(port_range) == 2:
-                    params['port_max'] = port_range[1]
+                    params["port_max"] = port_range[1]
 
                 # Remove the ports from the address string, including ":"
-                addr_str = addr_str[:len(addr_str) - len(ports) - 1]
+                addr_str = addr_str[: len(addr_str) - len(ports) - 1]
 
             # get IP range
-            ip_range = addr_str.split('-')
+            ip_range = addr_str.split("-")
             if len(ip_range) == 2:
-                params["addr_min"] = ip_range[0].strip('[]')
-                params["addr_max"] = ip_range[1].strip('[]')
+                params["addr_min"] = ip_range[0].strip("[]")
+                params["addr_max"] = ip_range[1].strip("[]")
             else:
-                params["addr"] = addr_str.strip('[]')
+                params["addr"] = addr_str.strip("[]")
 
         for flag in ["persistent", "hash", "random"]:
             if flag in [match.group(3), match.group(4), match.group(5)]:
@@ -297,7 +299,7 @@ class ResubmitDecoder(ActionDecoder):
     @classmethod
     def regexp(cls):
         reg = r"(commit,)?(force,)?(table=(\d+))?"
-        return re.compile(r'resubmit\((\w+)?,(\d+)(,ct)?\)')
+        return re.compile(r"resubmit\((\w+)?,(\d+)(,ct)?\)")
 
     @classmethod
     def decode_action(cls, actions, match):
@@ -350,8 +352,7 @@ class ResubmitDecoder(ActionDecoder):
 class LoadDecoder(ActionDecoder):
     @classmethod
     def regexp(cls):
-        return re.compile(r'load:(\w+)->({})'.format(
-            SubFieldDecoder.regexp_str()))
+        return re.compile(r"load:(\w+)->({})".format(SubFieldDecoder.regexp_str()))
 
     @classmethod
     def decode_action(cls, actions, match):
@@ -359,8 +360,7 @@ class LoadDecoder(ActionDecoder):
         if match.group(1):
             params["value"] = int(match.group(1), 0)
         if match.group(2):
-            params["destination"] = SubFieldDecoder.decode_field(
-                match.group(2))
+            params["destination"] = SubFieldDecoder.decode_field(match.group(2))
 
         actions.append({"action": "load", "params": params})
         return True
@@ -371,7 +371,8 @@ class SubActionFieldDecoder(FieldDecoder):
     Decodes an action that has another action string in it, e.g:
         clone(action_str)
     """
-    REGEXP_FIELD = r'.*'
+
+    REGEXP_FIELD = r".*"
 
     @classmethod
     def regexp_str(cls):
@@ -386,7 +387,7 @@ class MoveDecoder(ActionDecoder):
     @classmethod
     def regexp(cls):
         sf_regex = SubFieldDecoder.regexp_str()
-        return re.compile('move:({})->({})'.format(sf_regex, sf_regex))
+        return re.compile("move:({})->({})".format(sf_regex, sf_regex))
 
     @classmethod
     def decode_action(cls, actions, match):
@@ -397,8 +398,7 @@ class MoveDecoder(ActionDecoder):
             raise DecodeError("no source registry in move action")
 
         if match.group(2):
-            params["destination"] = SubFieldDecoder.decode_field(
-                match.group(2))
+            params["destination"] = SubFieldDecoder.decode_field(match.group(2))
         else:
             raise DecodeError("no destination registry in move action")
 
@@ -417,7 +417,7 @@ class ParenthesisFieldDecoder(FieldDecoder):
 
     def decode_field(self, string):
         # remove "keyword(" and send to field_decoder
-        substr = string[len(self._keyword):].strip('()')
+        substr = string[len(self._keyword) :].strip("()")
         value = self._field_decoder.decode_field(substr)
         return value
 
@@ -433,7 +433,7 @@ class EqualKeyValFieldDecoder(FieldDecoder):
 
     def decode_field(self, string):
         # remove "keyword=" and send to field_decoder
-        substr = string[len(self._keyword) + 1:]
+        substr = string[len(self._keyword) + 1 :]
         value = self._field_decoder.decode_field(substr)
         return value
 
@@ -458,11 +458,13 @@ class ParenthesisListDecoder(ActionDecoder):
         fields: list of tuples (field_name, field_decoder)
 
     """
+
     def __init__(self, keyword, fields):
         # just to be sure
         self._fields = fields
         field_regexp = ",?".join(
-            [r"({})?".format(field[1].regexp_str()) for field in fields])
+            [r"({})?".format(field[1].regexp_str()) for field in fields]
+        )
         regexp_str = r"{}\({}\)".format(keyword, field_regexp)
         self._regexp = re.compile(regexp_str)
         self._fields = fields
@@ -484,37 +486,45 @@ class ParenthesisListDecoder(ActionDecoder):
         actions.append({"action": self._keyword, "params": params})
 
 
-ControllerDecoder = ParenthesisListDecoder("controller", [
-    ("reason", EqualKeyValFieldDecoder("reason", SimpleStringFieldDecoder)),
-    ("max_len", EqualKeyValFieldDecoder("max_len", DecFieldDecoder)),
-    ("id", EqualKeyValFieldDecoder("id", SimpleStringFieldDecoder)),
-    ("userdata", EqualKeyValFieldDecoder("userdata", DataFieldDecoder())),
-    ("pause", FlagFieldDecoder("pause")),
-    ("meter_id", EqualKeyValFieldDecoder("meter_id",
-                                         SimpleStringFieldDecoder)),
-])
+ControllerDecoder = ParenthesisListDecoder(
+    "controller",
+    [
+        ("reason", EqualKeyValFieldDecoder("reason", SimpleStringFieldDecoder)),
+        ("max_len", EqualKeyValFieldDecoder("max_len", DecFieldDecoder)),
+        ("id", EqualKeyValFieldDecoder("id", SimpleStringFieldDecoder)),
+        ("userdata", EqualKeyValFieldDecoder("userdata", DataFieldDecoder())),
+        ("pause", FlagFieldDecoder("pause")),
+        ("meter_id", EqualKeyValFieldDecoder("meter_id", SimpleStringFieldDecoder)),
+    ],
+)
 
 # e.g: multipath(eth_src,50,modulo_n,1,0,NXM_NX_REG0[])
-MultipathDecoder = ParenthesisListDecoder("multipath", [
-    ("fields", SimpleStringFieldDecoder),
-    ("basis", DecFieldDecoder),
-    ("algorithm", SimpleStringFieldDecoder),
-    ("max_link", DecFieldDecoder),
-    ("arg", DecFieldDecoder),
-    ("subfield", SubFieldDecoder),
-])
+MultipathDecoder = ParenthesisListDecoder(
+    "multipath",
+    [
+        ("fields", SimpleStringFieldDecoder),
+        ("basis", DecFieldDecoder),
+        ("algorithm", SimpleStringFieldDecoder),
+        ("max_link", DecFieldDecoder),
+        ("arg", DecFieldDecoder),
+        ("subfield", SubFieldDecoder),
+    ],
+)
 
-CTDecoder = ParenthesisListDecoder("ct", [
-    ("commit", FlagFieldDecoder("commit")),
-    ("force", FlagFieldDecoder("force")),
-    ("table", EqualKeyValFieldDecoder("table", DecFieldDecoder)),
-    ("zone", EqualKeyValFieldDecoder("zone", SubFieldDecoder)),
-    ("zone_imm", EqualKeyValFieldDecoder("zone", DecFieldDecoder)),
-    ("zone_imm", EqualKeyValFieldDecoder("zone", DecFieldDecoder)),
-    ("nat", FlagFieldDecoder("nat")),
-    ("nat", NatDecoder()),
-    ("exec", ParenthesisFieldDecoder("exec", SubActionFieldDecoder())),
-])
+CTDecoder = ParenthesisListDecoder(
+    "ct",
+    [
+        ("commit", FlagFieldDecoder("commit")),
+        ("force", FlagFieldDecoder("force")),
+        ("table", EqualKeyValFieldDecoder("table", DecFieldDecoder)),
+        ("zone", EqualKeyValFieldDecoder("zone", SubFieldDecoder)),
+        ("zone_imm", EqualKeyValFieldDecoder("zone", DecFieldDecoder)),
+        ("zone_imm", EqualKeyValFieldDecoder("zone", DecFieldDecoder)),
+        ("nat", FlagFieldDecoder("nat")),
+        ("nat", NatDecoder()),
+        ("exec", ParenthesisFieldDecoder("exec", SubActionFieldDecoder())),
+    ],
+)
 
 
 class BundleMembersFieldDecoder:
@@ -526,21 +536,24 @@ class BundleMembersFieldDecoder:
 
     @classmethod
     def decode_field(self, string):
-        members = string.split(':')[1]
-        return [int(i) for i in members.split(',')]
+        members = string.split(":")[1]
+        return [int(i) for i in members.split(",")]
 
 
 # e.g: bundle(eth_src,0,hrw,ofport,members:4,8)
-BundleDecoder = ParenthesisListDecoder("bundle", [
-    ("fields", SimpleStringFieldDecoder),
-    ("basis", DecFieldDecoder),
-    ("algorithm", SimpleStringFieldDecoder),
-    ("ofport", SimpleStringFieldDecoder),
-    ("subfield", SubFieldDecoder),
-    ("members", BundleMembersFieldDecoder()),
-])
+BundleDecoder = ParenthesisListDecoder(
+    "bundle",
+    [
+        ("fields", SimpleStringFieldDecoder),
+        ("basis", DecFieldDecoder),
+        ("algorithm", SimpleStringFieldDecoder),
+        ("ofport", SimpleStringFieldDecoder),
+        ("subfield", SubFieldDecoder),
+        ("members", BundleMembersFieldDecoder()),
+    ],
+)
 
-#class ControllerDecoder(ActionDecoder):
+# class ControllerDecoder(ActionDecoder):
 #    @classmethod
 #    def regexp(cls):
 #        return re.compile(
@@ -577,7 +590,7 @@ BundleDecoder = ParenthesisListDecoder("bundle", [
 class ConjunctionDecoder:
     @classmethod
     def regexp(cls):
-        return re.compile(r'conjunction\((\d+),(\d+)/(\d+)\)')
+        return re.compile(r"conjunction\((\d+),(\d+)/(\d+)\)")
 
     @classmethod
     def decode_action(cls, actions, match):
@@ -592,7 +605,7 @@ class ConjunctionDecoder:
 class EnqueueDecoder:
     @classmethod
     def regexp(cls):
-        return re.compile(r'enqueue:(\d+):(\d+)')
+        return re.compile(r"enqueue:(\d+):(\d+)")
 
     @classmethod
     def decode_action(cls, actions, match):
@@ -604,98 +617,54 @@ class EnqueueDecoder:
 
 
 action_decoders = {
-    "drop":
-    KeywordDecoder("drop"),
-    "exit":
-    KeywordDecoder("exit"),
-    "ct_clear":
-    KeywordDecoder("ct_clear"),
-    "dec_ttl":
-    KeywordDecoder("dec_ttl"),
-    "strip_vlan":
-    KeywordDecoder("strip_vlan"),
-    "pop_queue":
-    KeywordDecoder("pop_queue"),
-    "dec_mpls_ttl":
-    KeywordDecoder("dec_mpls_ttl"),
-    "dec_nsh_ttl":
-    KeywordDecoder("dec_nsh_ttl"),
-    "mod_dl_src":
-    ColonDecoder("mod_dl_src", MACFieldDecoder),
-    "mod_dl_dst":
-    ColonDecoder("mod_dl_dst", MACFieldDecoder),
-    "mod_nw_src":
-    ColonDecoder("mod_nw_src", IPFieldDecoder),
-    "mod_nw_dst":
-    ColonDecoder("mod_nw_dst", IPFieldDecoder),
-    "mod_tp_src":
-    ColonDecoder("mod_tp_src", DecFieldDecoder),
-    "mod_tp_dst":
-    ColonDecoder("mod_tp_dst", DecFieldDecoder),
-    "mod_vlan_vid":
-    ColonDecoder("mod_vlan_vid", DecFieldDecoder),
-    "mod_vlan_pcp":
-    ColonDecoder("mod_vlan_pcp", DecFieldDecoder),
-    "mod_nw_tos":
-    ColonDecoder("mod_nw_tos", DecFieldDecoder),
-    "mod_nw_ecn":
-    ColonDecoder("mod_nw_ecn", DecFieldDecoder),
+    "drop": KeywordDecoder("drop"),
+    "exit": KeywordDecoder("exit"),
+    "ct_clear": KeywordDecoder("ct_clear"),
+    "dec_ttl": KeywordDecoder("dec_ttl"),
+    "strip_vlan": KeywordDecoder("strip_vlan"),
+    "pop_queue": KeywordDecoder("pop_queue"),
+    "dec_mpls_ttl": KeywordDecoder("dec_mpls_ttl"),
+    "dec_nsh_ttl": KeywordDecoder("dec_nsh_ttl"),
+    "mod_dl_src": ColonDecoder("mod_dl_src", MACFieldDecoder),
+    "mod_dl_dst": ColonDecoder("mod_dl_dst", MACFieldDecoder),
+    "mod_nw_src": ColonDecoder("mod_nw_src", IPFieldDecoder),
+    "mod_nw_dst": ColonDecoder("mod_nw_dst", IPFieldDecoder),
+    "mod_tp_src": ColonDecoder("mod_tp_src", DecFieldDecoder),
+    "mod_tp_dst": ColonDecoder("mod_tp_dst", DecFieldDecoder),
+    "mod_vlan_vid": ColonDecoder("mod_vlan_vid", DecFieldDecoder),
+    "mod_vlan_pcp": ColonDecoder("mod_vlan_pcp", DecFieldDecoder),
+    "mod_nw_tos": ColonDecoder("mod_nw_tos", DecFieldDecoder),
+    "mod_nw_ecn": ColonDecoder("mod_nw_ecn", DecFieldDecoder),
     "output": [
         ColonDecoder("output", DecFieldDecoder),
-        ColonDecoder("output", SubFieldDecoder)
+        ColonDecoder("output", SubFieldDecoder),
     ],
-    "set_tunnel":
-    ColonDecoder("set_tunnel", HexFieldDecoder),
-    "set_tunnel64":
-    ColonDecoder("set_tunnel64", DecFieldDecoder),
-    "set_queue":
-    ColonDecoder("set_queue", DecFieldDecoder),
-    "note":
-    ColonDecoder("note", DataFieldDecoder()),
-    "group":
-    ColonDecoder("group", DecFieldDecoder),
-    "CONTROLLER":
-    KeywordDecoder("CONTROLLER"),
-    "NORMAL":
-    KeywordDecoder("NORMAL"),
-    "LOCAL":
-    KeywordDecoder("LOCAL"),
-    "push":
-    ColonDecoder("push", SubFieldDecoder),
-    "pop":
-    ColonDecoder("pop", SubFieldDecoder),
-    "load":
-    LoadDecoder(),
-    "move":
-    MoveDecoder(),
-    "resubmit":
-    ResubmitDecoder,
-    "ct":
-    CTDecoder,
-    "controller":
-    ControllerDecoder,
-    "multipath":
-    MultipathDecoder,
-    "bundle":
-    BundleDecoder,
-    "conjunction":
-    ConjunctionDecoder(),
-    "enqueue":
-    EnqueueDecoder(),
-    "set_mpls_ttl":
-    ParenthesisDecoder("set_mpls_ttl", DecFieldDecoder),
-    "set_mpls_tc":
-    ParenthesisDecoder("set_mpls_tc", DecFieldDecoder),
-    "set_mpls_label":
-    ParenthesisDecoder("set_mpls_label", DecFieldDecoder),
-    "push_mpls":
-    ColonDecoder("push_mpls", HexFieldDecoder),
-    "pop_mpls":
-    ColonDecoder("pop_mpls", HexFieldDecoder),
-    "nat":
-    NatDecoder(),
-    "clone":
-    ParenthesisDecoder("clone", SubActionFieldDecoder)
+    "set_tunnel": ColonDecoder("set_tunnel", HexFieldDecoder),
+    "set_tunnel64": ColonDecoder("set_tunnel64", DecFieldDecoder),
+    "set_queue": ColonDecoder("set_queue", DecFieldDecoder),
+    "note": ColonDecoder("note", DataFieldDecoder()),
+    "group": ColonDecoder("group", DecFieldDecoder),
+    "CONTROLLER": KeywordDecoder("CONTROLLER"),
+    "NORMAL": KeywordDecoder("NORMAL"),
+    "LOCAL": KeywordDecoder("LOCAL"),
+    "push": ColonDecoder("push", SubFieldDecoder),
+    "pop": ColonDecoder("pop", SubFieldDecoder),
+    "load": LoadDecoder(),
+    "move": MoveDecoder(),
+    "resubmit": ResubmitDecoder,
+    "ct": CTDecoder,
+    "controller": ControllerDecoder,
+    "multipath": MultipathDecoder,
+    "bundle": BundleDecoder,
+    "conjunction": ConjunctionDecoder(),
+    "enqueue": EnqueueDecoder(),
+    "set_mpls_ttl": ParenthesisDecoder("set_mpls_ttl", DecFieldDecoder),
+    "set_mpls_tc": ParenthesisDecoder("set_mpls_tc", DecFieldDecoder),
+    "set_mpls_label": ParenthesisDecoder("set_mpls_label", DecFieldDecoder),
+    "push_mpls": ColonDecoder("push_mpls", HexFieldDecoder),
+    "pop_mpls": ColonDecoder("pop_mpls", HexFieldDecoder),
+    "nat": NatDecoder(),
+    "clone": ParenthesisDecoder("clone", SubActionFieldDecoder),
 }
 
 # TODO: The following actions are not decodable yet
@@ -728,7 +697,8 @@ def decode_action_line(line):
         decoder = action_decoders.get(name, None)
         if not decoder:
             raise DecodeError(
-                "Could not find a decoder for action name {}".format(name))
+                "Could not find a decoder for action name {}".format(name)
+            )
         if isinstance(decoder, list):
             decoders.extend(decoder)
         else:
@@ -742,13 +712,15 @@ def decode_action_line(line):
                 got_match = True
                 decoder.decode_action(actions, match)
                 some_match = True
-                line = line[match.end():].strip()
-                if len(line) > 0 and line[0] == ',':
+                line = line[match.end() :].strip()
+                if len(line) > 0 and line[0] == ",":
                     line = line[1:]
                 break
         if not got_match:
             raise DecodeError(
-                "All decoders for action action {} failed to match. Line: {}".
-                format(name, line))
+                "All decoders for action action {} failed to match. Line: {}".format(
+                    name, line
+                )
+            )
 
     return actions
