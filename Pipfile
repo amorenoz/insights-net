@@ -11,7 +11,8 @@ click = "*"
 jupyter-console = "*"
 colorama = "*"
 tabulate = "*"
-insights-core = {editable = true, ref = "commands", git = "https://github.com/amorenoz/insights-core.git"}
+#insights-core = {editable = true, ref = "commands", git = "https://github.com/amorenoz/insights-core.git"}
+insights-core = "*"
 rich = "*"
 ovsdbapp = "*"
 

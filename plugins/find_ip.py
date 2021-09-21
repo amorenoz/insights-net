@@ -1,104 +1,136 @@
 import re
 
-from insights.core.plugins import command
 from insights.contrib import ipaddress
 from insights.parsers.ip import IpAddr, RouteDevices, IpNeighShow
 from insights.parsers.hosts import Hosts
 from insights.parsers.iptables import IPTabPermanent, IP6TabPermanent, IPTables, IP6Tables
 from insights.parsers.netstat import Netstat
+from insights.core.plugins import combiner
 
+from .commands import CommandMetaClass, command
 from .ip import NetNsIpAddr, NetNsIpAddr, NetNsIpRoute
 from .ofctl import SosOvsOfctlFlows
 from .ovn import OVNNBDump, OVNSBDump
-from .ocp  import OCPPods, OCPServices, OCPNetConf
+from .ocp import OCPPods, OCPServices, OCPNetConf
 from .ocp_net import OCPOfclDumpFlows, OCPNB, OCPSB
 
 
-@command(optional=[
+@combiner(optional=[
     IpAddr, RouteDevices, IpNeighShow, Hosts, IPTabPermanent, IP6TabPermanent,
     IP6Tables, IPTables, Netstat, NetNsIpAddr, NetNsIpRoute, SosOvsOfctlFlows,
-    OCPOfclDumpFlows, OVNNBDump, OVNSBDump, OCPNB, OCPSB, OCPPods, OCPServices, OCPNetConf])
-def find_ip(params, ipaddr, iproute, ipneigh, hosts, iptperm, ip6tperm, ip6tables,
-            iptables, netstat, nsipaddr, nsiproute, ofctl, ocp_ofctl, ovn_nb,
-            ovn_sb, ocp_nb, ocp_sb, pods, services, ocpnetconf):
+    OCPOfclDumpFlows, OVNNBDump, OVNSBDump, OCPNB, OCPSB, OCPPods, OCPServices,
+    OCPNetConf
+])
+class IPAddressInformation(metaclass=CommandMetaClass):
+    """ FindIP is a combiner that captures all other components that might hold
+    ip addreesses and offers a function "find" that accepts an ip address
+    string to look for.
+
     """
-    Find an IP address in a number of possible places.
-    Returns a dict with each key being the name of the place where a match was
-    found:
-    """
-    ip_string = params.params.get('ip')
-    ip_addr = ipaddress.ip_address(ip_string)
-    result = dict()
+    def __init__(self, ipaddr, iproute, ipneigh, hosts, iptperm, ip6tperm,
+                 ip6tables, iptables, netstat, nsipaddr, nsiproute, ofctl,
+                 ocp_ofctl, ovn_nb, ovn_sb, ocp_nb, ocp_sb, pods, services,
+                 ocpnetconf):
+        self.ipaddr = ipaddr
+        self.iproute = iproute
+        self.ipneigh = ipneigh
+        self.hosts = hosts
+        self.iptperm = iptperm
+        self.ip6tperm = ip6tperm
+        self.ip6tables = iptables
+        self.iptables = iptables
+        self.netstat = netstat
+        self.nsipaddr = nsipaddr
+        self.nsiproute = nsiproute
+        self.ofctl = ofctl
+        self.ocp_ofcl = ocp_ofctl
+        self.ovn_nb = ovn_nb
+        self.ovn_sb = ovn_sb
+        self.ocp_nb = ocp_nb
+        self.ocp_sb = ocp_sb
+        self.pods = pods
+        self.services = services
+        self.ocpnetconf = ocpnetconf
 
-    ## Find in ip addr
-    allip = [ipaddr]
-    if nsipaddr:
-        for ns in nsipaddr:
-            allip.append(ns)
+    @command
+    def find_ip(self, ip):
+        """ Look for an IP address in all the available componentes
+        """
 
-    ipaddr_matches = find_in_ipaddrs(ip_addr, allip)
-    if ipaddr_matches:
-        result["ip_addr"] = ipaddr_matches
+        ip_addr = ipaddress.ip_address(ip)
+        result = dict()
 
-    # Find in ip route
-    allroute = [iproute]
-    if nsiproute:
-        for nsr in nsiproute:
-            allroute.append(nsr)
+        # Find in ip addr
+        allip = [self.ipaddr]
+        if self.nsipaddr:
+            for ns in self.nsipaddr:
+                allip.append(ns)
 
-    route_matches = find_in_routes(ip_addr, allroute)
-    if route_matches:
-        result["ip_route"] = route_matches
+        ipaddr_matches = find_in_ipaddrs(ip_addr, allip)
+        if ipaddr_matches:
+            result["ip_addr"] = ipaddr_matches
 
-    # Find in neigh
-    neigh_matches = find_in_neigh(ip_addr, ipneigh)
-    if neigh_matches:
-        result["ip_neigh"] = neigh_matches
+        # Find in ip route
+        allroute = [self.iproute]
+        if self.nsiproute:
+            for nsr in self.nsiproute:
+                allroute.append(nsr)
 
-    # Find in hosts
-    host_matches = find_in_hosts(ip_addr, hosts)
-    if host_matches:
-        result["hosts"] = host_matches
+        route_matches = find_in_routes(ip_addr, allroute)
+        if route_matches:
+            result["ip_route"] = route_matches
 
-    # Find in iptables
-    ipt_matches = find_in_iptables(ip_addr,
-                                   [iptperm, ip6tperm, ip6tables, iptables])
-    if ipt_matches:
-        result["iptables"] = ipt_matches
+        # Find in neigh
+        neigh_matches = find_in_neigh(ip_addr, self.ipneigh)
+        if neigh_matches:
+            result["ip_neigh"] = neigh_matches
 
-    #Find in netstat
-    netstat_matches = find_in_netstat(ip_addr, netstat)
-    if netstat_matches:
-        result["netstat"] = netstat_matches
+        # Find in hosts
+        host_matches = find_in_hosts(ip_addr, self.hosts)
+        if host_matches:
+            result["hosts"] = host_matches
 
-    #Find in ovs ofctl dumps
-    ofctl_matches = find_in_ofctl(ip_addr, ofctl or ocp_ofctl)
-    if ofctl_matches:
-        result["ofctl"] = ofctl_matches
+        # Find in iptables
+        ipt_matches = find_in_iptables(
+            ip_addr,
+            [self.iptperm, self.ip6tperm, self.ip6tables, self.iptables])
+        if ipt_matches:
+            result["iptables"] = ipt_matches
 
-    #Find in OVN
-    ovn_nb_matches = find_in_nb(ip_addr, ovn_nb or ocp_nb)
-    if ovn_nb_matches:
-        result["nb"] = ovn_nb_matches
+        # Find in netstat
+        netstat_matches = find_in_netstat(ip_addr, self.netstat)
+        if netstat_matches:
+            result["netstat"] = netstat_matches
 
-    ovn_sb_matches = find_in_sb(ip_addr, ovn_sb or ocp_sb)
-    if ovn_sb_matches:
-        result["sb"] = ovn_sb_matches
+        # Find in ovs ofctl dumps
+        ofctl_matches = find_in_ofctl(ip_addr, self.ofctl or self.ocp_ofctl)
+        if ofctl_matches:
+            result["ofctl"] = ofctl_matches
 
-    #Find in OCP
-    pods_matches = find_in_pods(ip_addr, pods)
-    if pods_matches:
-        result["pods"] = pods_matches
+        # Find in OVN
+        ovn_nb_matches = find_in_nb(ip_addr, self.ovn_nb or self.ocp_nb)
+        if ovn_nb_matches:
+            result["nb"] = ovn_nb_matches
 
-    services_matches = find_in_services(ip_addr, services)
-    if services_matches:
-        result["services"] = services_matches
+        ovn_sb_matches = find_in_sb(ip_addr, self.ovn_sb or self.ocp_sb)
+        if ovn_sb_matches:
+            result["sb"] = ovn_sb_matches
 
-    ocp_net_matches = find_in_ocpnetconf(ip_addr, ocpnetconf)
-    if ocp_net_matches:
-        result["ocp_net"] = ocp_net_matches
+        # Find in OCP
+        pods_matches = find_in_pods(ip_addr, self.pods)
+        if pods_matches:
+            result["pods"] = pods_matches
 
-    return result
+        services_matches = find_in_services(ip_addr, self.services)
+        if services_matches:
+            result["services"] = services_matches
+
+        ocp_net_matches = find_in_ocpnetconf(ip_addr, self.ocpnetconf)
+        if ocp_net_matches:
+            result["ocp_net"] = ocp_net_matches
+
+        return result
+
 
 def find_in_ipaddrs(addr, ipaddr_parsers):
     """
@@ -108,7 +140,6 @@ def find_in_ipaddrs(addr, ipaddr_parsers):
         ipaddr_parsers: list of IPAddr Parsers
     """
     result = dict()
-    ipdata = []
     for ipd in ipaddr_parsers:
         if not ipd:
             continue
@@ -391,7 +422,9 @@ def find_in_ofctl(addr, ofctls):
 #FIXME:
 # - Only regexp on fields that make sense
 # - IPv6 regex
-IP_CIDR_RE = re.compile(r"((?<!\d\.)(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?:/\d{1,2})?)")
+IP_CIDR_RE = re.compile(
+    r"((?<!\d\.)(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?:/\d{1,2})?)")
+
 
 def list_exact(addr, addr_list):
     if not addr_list:
@@ -408,6 +441,7 @@ def list_exact(addr, addr_list):
                 return True
     return False
 
+
 def dict_regexp(addr, str_dict):
     """
     FIXME: IPV6
@@ -421,6 +455,7 @@ def dict_regexp(addr, str_dict):
 
     return False
 
+
 def regexp_value(addr, value):
     if not isinstance(value, str):
         return False
@@ -430,27 +465,43 @@ def regexp_value(addr, value):
             return True
     return False
 
+
 def exact(addr, string):
     return _compare_ip_or_net(addr, string)
 
+
 NBFIELDS = {
-    "Address_Set": {"addresses": list_exact},
-    "Logical_Switch_Port": {"addresses": list_exact,
-                            "dynamic_addresses": list_exact,
-                            "external_ids": dict_regexp,
-                            },
-    "DHCP_Options": {"options": dict_regexp,
-                     "external_ids": dict_regexp,
-                     "cidr": exact},
+    "Address_Set": {
+        "addresses": list_exact
+    },
+    "Logical_Switch_Port": {
+        "addresses": list_exact,
+        "dynamic_addresses": list_exact,
+        "external_ids": dict_regexp,
+    },
+    "DHCP_Options": {
+        "options": dict_regexp,
+        "external_ids": dict_regexp,
+        "cidr": exact
+    },
 }
 
 SBFIELDS = {
-    "Address_Set": {"addresses": list_exact},
-    "Encap": {"ip": exact,},
-    "IGMP_Group": {"address": exact},
-    "Logical_Flow": {"match": regexp_value,
-                    "actions": regexp_value},
+    "Address_Set": {
+        "addresses": list_exact
+    },
+    "Encap": {
+        "ip": exact,
+    },
+    "IGMP_Group": {
+        "address": exact
+    },
+    "Logical_Flow": {
+        "match": regexp_value,
+        "actions": regexp_value
+    },
 }
+
 
 def find_in_nb(addr, ovndb):
     result = {}
@@ -460,6 +511,7 @@ def find_in_nb(addr, ovndb):
         ovndb = ovndb[0]
     return find_in_ovn(addr, ovndb, NBFIELDS)
 
+
 def find_in_sb(addr, ovndb):
     result = {}
     if not ovndb:
@@ -467,6 +519,7 @@ def find_in_sb(addr, ovndb):
     if isinstance(ovndb, list):
         ovndb = ovndb[0]
     return find_in_ovn(addr, ovndb, SBFIELDS)
+
 
 def find_in_ovn(addr, ovndb, fields):
     result = {}
@@ -483,11 +536,14 @@ def find_in_ovn(addr, ovndb, fields):
 
     return result
 
+
 def find_in_pods(addr, pod_data):
     return find_in_ocp_namespaces(addr, pod_data, "status", "podIP")
 
+
 def find_in_services(addr, service_data):
     return find_in_ocp_namespaces(addr, service_data, "spec", "clusterIPs")
+
 
 def find_in_ocp_namespaces(addr, ocp_data, *field_list):
     result = []
@@ -502,6 +558,7 @@ def find_in_ocp_namespaces(addr, ocp_data, *field_list):
                 result.append(match)
     return result
 
+
 def find_in_ocpnetconf(addr, ocp_net):
     result = []
     if not ocp_net:
@@ -515,6 +572,7 @@ def find_in_ocpnetconf(addr, ocp_net):
         if match:
             result.append(match)
     return result
+
 
 def find_in_ocp(addr, item, *field_list):
     """
@@ -534,14 +592,16 @@ def find_in_ocp(addr, item, *field_list):
     match, subfield = find_in_field(addr, elem)
 
     if match:
-        return  {
-            "name": item.get('metadata').get('name') if item.get('metadata') else "unknown",
+        return {
+            "name": item.get('metadata').get('name')
+            if item.get('metadata') else "unknown",
             "full": item,
             "field": field_list[-1],
             "match": elem,
         }
     else:
         return None
+
 
 def find_in_field(addr, field):
     """
