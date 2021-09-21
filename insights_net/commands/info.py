@@ -1,8 +1,9 @@
 import click
 
-from insights_cmd.main import maincli
+from insights_net.main import maincli
 
-@maincli.command(name='info')
+
+@maincli.command(name="info")
 @click.pass_obj
 def info(ctx):
     """
@@ -19,29 +20,28 @@ def info(ctx):
 
         print("Archive: " + archive)
         print("*" * (9 + len(archive)))
-        if isinstance (host_data, str):
+        if isinstance(host_data, str):
             print(host_data)
         else:
             print_results(host_data)
             print("")
 
+
 def print_results(data):
-    if data.get('models'):
+    if data.get("models"):
         print("Available Models")
         print("----------------")
-        models = data.get('models')
+        models = data.get("models")
         # Print in 3 columns
         maxlen = len(max(models, key=len)) + 4
         fmt = "{{:<{len}}}{{:<{len}}}{{:<}}".format(len=maxlen)
-        for a,b,c in zip(models[::3],models[1::3],models[2::3]):
+        for a, b, c in zip(models[::3], models[1::3], models[2::3]):
             print(fmt.format(a, b, c))
 
         print("")
 
-    if data.get('commands'):
+    if data.get("commands"):
         print("Available Commands")
         print("------------------")
-        for cmd in data.get('commands') :
+        for cmd in data.get("commands"):
             print("  {}".format(cmd))
-
-

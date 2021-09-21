@@ -2,12 +2,14 @@
 
 import click
 
-from insights_cmd.client import InsightsClient
+from insights_net.client import InsightsClient
+
 
 class Context(object):
     def __init__(self, verbose=False):
         self.client = InsightsClient(verbose)
         self.verbose = verbose
+
 
 @click.group()
 @click.option("-v", "--verbose", is_flag=True, help="Be verbose")
@@ -17,13 +19,14 @@ def maincli(ctx, verbose):
     pass
 
 
-@maincli.command(name='stop')
+@maincli.command(name="stop")
 @click.pass_obj
 def stop(obj):
     """
     Stop the background running insights kernel
     """
     obj.client.close()
+
 
 def main():
     maincli()

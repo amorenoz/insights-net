@@ -3,7 +3,12 @@ import re
 from insights.contrib import ipaddress
 from insights.parsers.ip import IpAddr, RouteDevices, IpNeighShow
 from insights.parsers.hosts import Hosts
-from insights.parsers.iptables import IPTabPermanent, IP6TabPermanent, IPTables, IP6Tables
+from insights.parsers.iptables import (
+    IPTabPermanent,
+    IP6TabPermanent,
+    IPTables,
+    IP6Tables,
+)
 from insights.parsers.netstat import Netstat
 from insights.core.plugins import combiner
 
@@ -15,22 +20,60 @@ from .ocp import OCPPods, OCPServices, OCPNetConf
 from .ocp_net import OCPOfclDumpFlows, OCPNB, OCPSB
 
 
-@combiner(optional=[
-    IpAddr, RouteDevices, IpNeighShow, Hosts, IPTabPermanent, IP6TabPermanent,
-    IP6Tables, IPTables, Netstat, NetNsIpAddr, NetNsIpRoute, SosOvsOfctlFlows,
-    OCPOfclDumpFlows, OVNNBDump, OVNSBDump, OCPNB, OCPSB, OCPPods, OCPServices,
-    OCPNetConf
-])
+@combiner(
+    optional=[
+        IpAddr,
+        RouteDevices,
+        IpNeighShow,
+        Hosts,
+        IPTabPermanent,
+        IP6TabPermanent,
+        IP6Tables,
+        IPTables,
+        Netstat,
+        NetNsIpAddr,
+        NetNsIpRoute,
+        SosOvsOfctlFlows,
+        OCPOfclDumpFlows,
+        OVNNBDump,
+        OVNSBDump,
+        OCPNB,
+        OCPSB,
+        OCPPods,
+        OCPServices,
+        OCPNetConf,
+    ]
+)
 class IPAddressInformation(metaclass=CommandMetaClass):
-    """ FindIP is a combiner that captures all other components that might hold
+    """FindIP is a combiner that captures all other components that might hold
     ip addreesses and offers a function "find" that accepts an ip address
     string to look for.
 
     """
-    def __init__(self, ipaddr, iproute, ipneigh, hosts, iptperm, ip6tperm,
-                 ip6tables, iptables, netstat, nsipaddr, nsiproute, ofctl,
-                 ocp_ofctl, ovn_nb, ovn_sb, ocp_nb, ocp_sb, pods, services,
-                 ocpnetconf):
+
+    def __init__(
+        self,
+        ipaddr,
+        iproute,
+        ipneigh,
+        hosts,
+        iptperm,
+        ip6tperm,
+        ip6tables,
+        iptables,
+        netstat,
+        nsipaddr,
+        nsiproute,
+        ofctl,
+        ocp_ofctl,
+        ovn_nb,
+        ovn_sb,
+        ocp_nb,
+        ocp_sb,
+        pods,
+        services,
+        ocpnetconf,
+    ):
         self.ipaddr = ipaddr
         self.iproute = iproute
         self.ipneigh = ipneigh
@@ -54,8 +97,7 @@ class IPAddressInformation(metaclass=CommandMetaClass):
 
     @command
     def find_ip(self, ip):
-        """ Look for an IP address in all the available componentes
-        """
+        """Look for an IP address in all the available componentes"""
 
         ip_addr = ipaddress.ip_address(ip)
         result = dict()
@@ -92,8 +134,8 @@ class IPAddressInformation(metaclass=CommandMetaClass):
 
         # Find in iptables
         ipt_matches = find_in_iptables(
-            ip_addr,
-            [self.iptperm, self.ip6tperm, self.ip6tables, self.iptables])
+            ip_addr, [self.iptperm, self.ip6tperm, self.ip6tables, self.iptables]
+        )
         if ipt_matches:
             result["iptables"] = ipt_matches
 
@@ -199,16 +241,12 @@ def _find_in_routes(addr, rt):
             continue
 
         if _compare_ip_or_net(addr, match):
-            matches.append({
-                'match': match,
-                'routes': [r.__dict__ for r in route]
-            })
+            matches.append({"match": match, "routes": [r.__dict__ for r in route]})
 
-    if len(matches) == 0 and rt.data.get('default'):
-        matches.append({
-            'match': 'default',
-            'routes': [r.__dict__ for r in rt.data.get('default')]
-        })
+    if len(matches) == 0 and rt.data.get("default"):
+        matches.append(
+            {"match": "default", "routes": [r.__dict__ for r in rt.data.get("default")]}
+        )
 
     return matches
 
@@ -222,9 +260,9 @@ def find_in_neigh(addr, neigh):
         return matches
 
     for neigh, data in neigh.data.items():
-        if data.get('addr') == addr:
+        if data.get("addr") == addr:
             append_data = data.copy()
-            append_data['addr'] = neigh
+            append_data["addr"] = neigh
             matches.append(append_data)
 
     return matches
@@ -275,11 +313,13 @@ def find_in_iptables_common(addr, ipt):
     for table in tables:
         for chain, rules in ipt.table_chains(table).items():
             for rule in rules:
-                if find_in_rule(addr, rule['rule']):
-                    matches.append({
-                        "chain": chain,
-                        "rule": rule,
-                    })
+                if find_in_rule(addr, rule["rule"]):
+                    matches.append(
+                        {
+                            "chain": chain,
+                            "rule": rule,
+                        }
+                    )
     return matches
 
 
@@ -295,26 +335,35 @@ def find_in_rule(addr, rule):
 
     Maybe this functionality could go in the nftables parser?
     """
-    matches = [{
-        "regexp": re.compile('-s\s([\w.:/]*)\s'),
-    }, {
-        "regexp": re.compile('-d\s([\w.:/]*)\s'),
-    }, {
-        "regexp": re.compile('--to-source\s([\w.:]*)\s'),
-    }, {
-        "regexp": re.compile('--to-destination\s([\w.:]*)\s'),
-    }, {
-        "regexp": re.compile('--to-source\s([\w.:]*):\d+\s'),
-    }, {
-        "regexp": re.compile('--to-destination\s([\w.:]*):\d+\s'),
-    }, {
-        "regexp": re.compile('--to-source\s([\w.:]*):\d+-\d+\s'),
-    }, {
-        "regexp": re.compile('--to-destination\s([\w.:]*):\d+-\d+\s'),
-    }]
+    matches = [
+        {
+            "regexp": re.compile("-s\s([\w.:/]*)\s"),
+        },
+        {
+            "regexp": re.compile("-d\s([\w.:/]*)\s"),
+        },
+        {
+            "regexp": re.compile("--to-source\s([\w.:]*)\s"),
+        },
+        {
+            "regexp": re.compile("--to-destination\s([\w.:]*)\s"),
+        },
+        {
+            "regexp": re.compile("--to-source\s([\w.:]*):\d+\s"),
+        },
+        {
+            "regexp": re.compile("--to-destination\s([\w.:]*):\d+\s"),
+        },
+        {
+            "regexp": re.compile("--to-source\s([\w.:]*):\d+-\d+\s"),
+        },
+        {
+            "regexp": re.compile("--to-destination\s([\w.:]*):\d+-\d+\s"),
+        },
+    ]
 
     for match in matches:
-        result = match.get('regexp').search(rule)
+        result = match.get("regexp").search(rule)
         if result:
             if _compare_ip_or_net(addr, result.group(1)):
                 return True
@@ -366,7 +415,7 @@ def find_in_netstat(addr, netstat):
         "Foreign":[...]
         }
     """
-    ipcons = 'Active Internet connections (servers and established)'
+    ipcons = "Active Internet connections (servers and established)"
     if not netstat:
         return {}
 
@@ -376,15 +425,14 @@ def find_in_netstat(addr, netstat):
         """
         compares addr (IPAddress) with the ipport string {IP}:{Port}
         """
-        ip, _, port = ip_port.rpartition(':')
+        ip, _, port = ip_port.rpartition(":")
         return addr == ipaddress.ip_address(ip)
 
     return {
-        'Local':
-        list(filter(lambda r: compare_ip_port(addr, r['Local Address']), ns)),
-        'Foreign':
-        list(filter(lambda r: compare_ip_port(addr, r['Foreign Address']),
-                    ns)),
+        "Local": list(filter(lambda r: compare_ip_port(addr, r["Local Address"]), ns)),
+        "Foreign": list(
+            filter(lambda r: compare_ip_port(addr, r["Foreign Address"]), ns)
+        ),
     }
 
 
@@ -401,16 +449,16 @@ def find_in_ofctl(addr, ofctls):
             continue
         flows = []
         for flow in ofctl.flow_dumps:
-            for match, value in flow.get('match').items():
+            for match, value in flow.get("match").items():
                 # TODO: search on match fields that we know there might be
                 # IP addresses
                 if _compare_ip_or_net(addr, value):
                     flows.append(flow)
 
-            for action in flow.get('actions'):
+            for action in flow.get("actions"):
                 # TODO: search on actions params that we know there might be
                 # IP addresses
-                if _compare_ip_or_net(addr, action.get('params')):
+                if _compare_ip_or_net(addr, action.get("params")):
                     flows.append(flow)
 
         if flows:
@@ -419,11 +467,10 @@ def find_in_ofctl(addr, ofctls):
     return result
 
 
-#FIXME:
+# FIXME:
 # - Only regexp on fields that make sense
 # - IPv6 regex
-IP_CIDR_RE = re.compile(
-    r"((?<!\d\.)(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?:/\d{1,2})?)")
+IP_CIDR_RE = re.compile(r"((?<!\d\.)(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?:/\d{1,2})?)")
 
 
 def list_exact(addr, addr_list):
@@ -431,12 +478,12 @@ def list_exact(addr, addr_list):
         return False
 
     for string in addr_list:
-        for elem in string.split(' '):
+        for elem in string.split(" "):
             if _compare_ip_or_net(addr, elem):
                 return True
 
     for string in addr_list:
-        for elem in string.split(','):
+        for elem in string.split(","):
             if _compare_ip_or_net(addr, elem):
                 return True
     return False
@@ -471,9 +518,7 @@ def exact(addr, string):
 
 
 NBFIELDS = {
-    "Address_Set": {
-        "addresses": list_exact
-    },
+    "Address_Set": {"addresses": list_exact},
     "Logical_Switch_Port": {
         "addresses": list_exact,
         "dynamic_addresses": list_exact,
@@ -482,24 +527,17 @@ NBFIELDS = {
     "DHCP_Options": {
         "options": dict_regexp,
         "external_ids": dict_regexp,
-        "cidr": exact
+        "cidr": exact,
     },
 }
 
 SBFIELDS = {
-    "Address_Set": {
-        "addresses": list_exact
-    },
+    "Address_Set": {"addresses": list_exact},
     "Encap": {
         "ip": exact,
     },
-    "IGMP_Group": {
-        "address": exact
-    },
-    "Logical_Flow": {
-        "match": regexp_value,
-        "actions": regexp_value
-    },
+    "IGMP_Group": {"address": exact},
+    "Logical_Flow": {"match": regexp_value, "actions": regexp_value},
 }
 
 
@@ -551,7 +589,7 @@ def find_in_ocp_namespaces(addr, ocp_data, *field_list):
         return
 
     for resource_list in ocp_data:
-        for item in resource_list.get('items'):
+        for item in resource_list.get("items"):
             match = find_in_ocp(addr, item, *field_list)
             if match:
                 match["namespace"] = resource_list.namespace
@@ -564,11 +602,11 @@ def find_in_ocpnetconf(addr, ocp_net):
     if not ocp_net:
         return
 
-    for item in ocp_net.get('items'):
-        match = find_in_ocp(addr, item, "spec", 'clusterNetwork')
+    for item in ocp_net.get("items"):
+        match = find_in_ocp(addr, item, "spec", "clusterNetwork")
         if match:
             result.append(match)
-        match = find_in_ocp(addr, item, "spec", 'serviceNetwork')
+        match = find_in_ocp(addr, item, "spec", "serviceNetwork")
         if match:
             result.append(match)
     return result
@@ -593,8 +631,9 @@ def find_in_ocp(addr, item, *field_list):
 
     if match:
         return {
-            "name": item.get('metadata').get('name')
-            if item.get('metadata') else "unknown",
+            "name": item.get("metadata").get("name")
+            if item.get("metadata")
+            else "unknown",
             "full": item,
             "field": field_list[-1],
             "match": elem,

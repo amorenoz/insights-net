@@ -1,37 +1,116 @@
-# insights-cmd
+# insights-net
 
-Experimental analysis commands based on [insights-core](https://github.com/RedHatInsights/insights-core). It allows running small commands on data living in an insighs-core shell.
+Network analysis tool based on [insights-core](https://github.com/RedHatInsights/insights-core).
+
+It provides:
+
+- A set of plugins that support parsing networking-related logs
+- A CLI tool that allows running commands to extract information from log archives.
 
 ## Getting started
 
-After cloning the repository, jump into the pipenv shell and update the dependencies:
+After cloning the repository, create a venv and install the tool
 
-    $ pipenv shell
-    (insights-cmd)
-    $ pipenv update
+(Optional) Create a virtual environment:
 
-Run `insights shell` on the archives you want to analyze specifying the "-k" flag and the "-p" option poniting to the `plugins` directory 
+    $ python -m venv venv && . ./venv/bin/activate
 
-    (insights-cmd)
-    $ insights shell -k -p plugins $ARCHIVE1 $ARCHIVE2...
+Install the tool:
 
-Run any command:
+    $ (venv) pip install .
 
-    (insights-cmd)
-    $ export PYTHONPATH=$PWD
-    (insights-cmd)
-    $ ./bin/insights-cmd info
+## Run insights shell
 
-## TODO
-- Currently, insights-cmd relies on a yet-to-be-merged functionality that currently lives [a fork](https://github.com/amorenoz/insights-core/commits/commands). The plan is to get this functionality in insights-core but in the meantime the Pipfile points to this branch.
-- Documentation and cleanup
-- More tools
-- Support mustgather reports and ocp parsers
-- package the tool
-- Write a decend contributig guide
+`insights-net` supports connecting to a running instance of insights shell and
+extract information from it. For more details about `insights shell`, visit the
+[insights documentation](https://insights-core.readthedocs.io/en/latest/).
+
+Run `insights shell` on kernel-mode ("-k" or "--kernel") on the archives you want to analyze and specify the load insights-net plugins:
+
+
+    $ insights shell -k  -p insights_net.plugins samples/ovn/sosreport-compute-0-2021-06-03-awkezkh samples/ovn/sosreport-controller-0-2021-06-03-qjzsrnv 
+    NOTE: When using the `ipython kernel` entry point, Ctrl-C will not work.
+    
+    To exit, you will have to explicitly quit this process, by either sending
+    "quit" from a client, or using Ctrl-\ in UNIX-like environments.
+    
+    To read more about this, see https://github.com/ipython/ipython/issues/2049
+    
+    
+    To connect another client to this kernel, use:
+        --existing kernel-3973772.json
+
+
+Now, in another terminal, you can run insights-net to introspect the archives:
+
+    $ insights-net 
+    Usage: insights-net [OPTIONS] COMMAND [ARGS]...
+    
+    Options:
+      -v, --verbose  Be verbose
+      --help         Show this message and exit.
+    
+    Commands:
+      find-ip  Get all the available information regarding an IP(v4/6) address
+      host     Show basic host information
+      info     Show basic information of the archives
+      ovn      Show the OVN configuration
+      stop     Stop the background running insights kernel
+    
+
+## Example commands:
+
+Dump a brief summary of the host information:   
+
+    $ insights-net host
+    Archive: samples/ovn/sosreport-compute-0-2021-06-03-awkezkh
+    ****************************    *******************************
+    HostName: compute-0.redhat.local
+    Red Hat Version:
+      Product: Red Hat Enterprise Linux
+      Version: 8.2
+      Code Name: Ootpa
+    Kernel:
+      Version : 4.18.0
+      Release: 193.51.1.el8_2
+      Arch: x86_64
+    Uptime for 1 days 19:45 hh:mm
+    Selinux: enabled
+    
+    Archive: samples/ovn/sosreport-controller-0-2021-06-03-qjzsrnv
+    **************************************************************
+    HostName: controller-0.redhat.local
+    Red Hat Version:
+      Product: Red Hat Enterprise Linux
+      Version: 8.2
+      Code Name: Ootpa
+    Kernel:
+      Version : 4.18.0
+      Release: 193.51.1.el8_2
+      Arch: x86_64
+    Uptime for 1 days 19:57 hh:mm
+    Selinux: enabled
+
+
+Find IP address information:
+
+
+    $ insights-net find-ip 172.17.1.85 
+    Archive: samples/ovn/sosreport-compute-0-2021-06-03-awkezkh                                                                                                                                                                                                                       
+    ***********************************************************                                                                                                                                                                                                                       
+    Neighbor Matches                                                                                                                                                                                                                                                                  
+    ----------------                                                                                                                                                                                                                                                                  
+      Address: 172.17.1.85                                                                                                                                                                                                                                                            
+      Device: vlan20                                                                                                                                                                                                                                                                  
+      LLAdr: 9e:9f:65:95:53:34                                                                                                                                                                                                                                                        
+      Reachibility: REACHABLE       
+    ...
+
 
 ## Contribute
-I know this tool is still very raw, but PRs are very welcome!
 
+Are you debugging a networking issue and you would like a tool to automate any information collection, processing or visualization? Do reach out to:
 
+Adrián Moreno <amorenoz@redhat.com> IRC:amorenoz
 
+And, off course, PRs are welcome :)
