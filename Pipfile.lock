@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "608ef358b6d8a954d564e6f51fc201e4f30b49d9995913a4693cd7816917037f"
+            "sha256": "bd8870ffa71247054f7f5234b3dfced8d53b45ab203360371f78badc4b45a40e"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -201,9 +201,12 @@
             "version": "==3.2"
         },
         "insights-core": {
-            "editable": true,
-            "git": "https://github.com/amorenoz/insights-core.git",
-            "ref": "4fc9ee3fd38879d6a0b97dbbfcf81fca83beaf18"
+            "hashes": [
+                "sha256:4638053e9a0fb793c15d7394adb5a2e647fcf0e35ce1cc3b4e5a3339c4de591e",
+                "sha256:825f97e6107d2c84b3525d646ea1a08632577a47576ae2ea7031ab395a0edb2c"
+            ],
+            "index": "pypi",
+            "version": "==3.0.241"
         },
         "ipykernel": {
             "hashes": [
@@ -660,7 +663,7 @@
                 "sha256:39fb8672126159acb139a7718dd10806104dec1e2f0f6c88aab05d17df10c8d4",
                 "sha256:f57b4c16c62fa2760b7e3d97c35b255512fb6b59a259730f36ba32ce9f8e342f"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4.0'",
             "version": "==1.26.6"
         },
         "wcwidth": {
