@@ -7,9 +7,9 @@ import stat
 
 from insights import CommandParser, parser, Parser, datasource
 from insights.core import dr
+from insights.core.context import SosArchiveContext, HostArchiveContext
 from insights.core.spec_factory import simple_file, ContentProvider
 from insights.parsers import SkipException
-from insights.core.context import SosArchiveContext, HostArchiveContext
 
 from ovsdbapp.backend.ovs_idl import Backend
 from ovsdbapp.backend.ovs_idl import connection
@@ -23,8 +23,28 @@ log = logging.getLogger(__name__)
 
 class OVSDBParser(Parser):
     """
-    Base class for OVSDB data
-    Expects _tables to have
+    Base class for OVSDB data parsers.
+
+    Tables are populated on parse_conent. The result is expected to be stored
+    in the private _tables that expects the following format:
+
+        {
+            "TableName0": {
+                "uuid0": {
+                    "column1": value01,
+                    "column2": value02,
+                    ...
+                }
+                "uuid1": {
+                    "column1": value11,
+                    "column2": value12,
+                }
+                ...
+            }
+            "TableName1": {
+            ...
+            }
+        }
     """
 
     def __init__(self, *args, **kwargs):
@@ -95,6 +115,9 @@ class OVSDBParser(Parser):
 
 class OVSDBListParser(OVSDBParser):
     """
+    OVSDBListParser tries to parse the output of commands that use the "--list"
+    format. Examples: ovs-vsctl, ovn-nbcl, ovn-sbctl
+
     Input example:
     ==============
     AutoAttach table
@@ -117,8 +140,6 @@ class OVSDBListParser(OVSDBParser):
     netflow             : []
     other_config        : {mac-table-size="50000"}
     ports               : [8918bf51-abfa-4b2e-961f-2dca931bf2a8, acb08497-7deb-4ca7-bc9d-d1119dc2d85f, dcf4d708-b4d8-4948-8570-d2a6a05e7949]
-
-
     """
 
     def __init__(self, *args, **kwargs):
@@ -250,6 +271,10 @@ class OVSDBListParser(OVSDBParser):
 class OVSDBDumpParser(OVSDBParser):
     """
     A parser that reads a OVSDB Dump file.
+
+    Note that as OVSDB is transactional, if the dump has not been compacted,
+    some information will be lost.
+
     Only the fist database will be parsed. Further databases or transactions will be ignored
     """
 

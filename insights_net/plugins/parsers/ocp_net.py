@@ -1,26 +1,14 @@
 """
 Plugin that deals with must-gather gather_network_logs content
 """
-import gzip
 
 from insights.core.plugins import parser
 from insights.parsers import SkipException
 from insights.core.spec_factory import glob_file, RawFileProvider
 
-from .ovsdb import OVSDBDumpParser
-from .ofctl import OVSOfctlFlows
-
-
-class GZFileProvider(RawFileProvider):
-    """
-    Class used in datasources that returns the contents of a gzipped file as
-    a list of lines
-    """
-
-    def load(self):
-        self.loaded = True
-        with gzip.open(self.path, "rt", encoding="utf-8") as f:
-            return [l.rstrip("\n") for l in f]
+from insights_net.plugins.datasources import GZFileProvider
+from insights_net.plugins.parsers.ovsdb import OVSDBDumpParser
+from insights_net.plugins.parsers.ofctl import OVSOfctlFlows
 
 
 """

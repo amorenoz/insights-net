@@ -58,6 +58,12 @@ Now, in another terminal, you can run insights-net to introspect the archives:
       stop     Stop the background running insights kernel
 
 
+## Extracting data from running running OVSDB servers
+
+`insights-net` has a plugin that supports extracting OVS, OVN NB and OVN SB information from a running ovsdb-server that serves such databases.
+
+TBC
+
 ## Example commands:
 
 Dump a brief summary of the host information:
