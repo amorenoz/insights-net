@@ -1,4 +1,5 @@
 import glob
+import uuid
 import json
 import logging
 import os
@@ -14,89 +15,86 @@ from insights.parsers import SkipException
 from ovsdbapp.backend.ovs_idl import Backend
 from ovsdbapp.backend.ovs_idl import connection
 
-ovsdb_dump = simple_file(
-    "/sos_commands/openvswitch/ovsdb-client_-f_list_dump", context=SosArchiveContext
-)
-
 log = logging.getLogger(__name__)
 
 
-class OVSDBParser(Parser):
+class OVSDBMixin(object):
     """
-    Base class for OVSDB data parsers.
+    Base class for OVSDB data parsers and combiners.
 
-    Tables are populated on parse_conent. The result is expected to be stored
-    in the private _tables that expects the following format:
-
-        {
-            "TableName0": {
-                "uuid0": {
-                    "column1": value01,
-                    "column2": value02,
+    Subclasses must populate two attributes:
+        _name(str): the name of the database
+        _tables(dict): Must have the following format:
+            {
+                "TableName0": {
+                    "uuid0": {
+                        "column1": value01,
+                        "column2": value02,
+                        ...
+                    }
+                    "uuid1": {
+                        "column1": value11,
+                        "column2": value12,
+                    }
                     ...
                 }
-                "uuid1": {
-                    "column1": value11,
-                    "column2": value12,
-                }
+                "TableName1": {
                 ...
+                }
             }
-            "TableName1": {
-            ...
-            }
-        }
     """
-
-    def __init__(self, *args, **kwargs):
-        self._tables = dict()
-        self._name = ""
-        super(OVSDBParser, self).__init__(*args, **kwargs)
 
     @property
     def tables(self):
         """
-        (dict): Returns all the tables
+        Returns all the tables
         """
         return self._tables
 
     @property
     def name(self):
         """
-        (string): Returns the database name
+        Returns the database name
         """
         return self._name
 
     def table_list(self):
         """
-        (list): Returns all the tables
+        Returns all the tables
         """
         return list(self._tables.keys())
 
     def columns(self, table):
         """
-        (list): Returns the list columns in a particular table
+        Returns the list columns in a particular table
         """
         first = self._tables.get(next(list(self._tables.get(table).keys())))
         return first.keys()
 
     def table(self, name):
         """
-        (dict) or (None): Returns the table with the given name
+        Returns the table with the given name
         """
         return self._tables.get(name)
 
     def row(self, table, uuid):
         """
-        (dict) or (None): Finds the row that with the given uuid
+        Finds the row that with the given uuid
         """
         table = self._tables.get(table)
         if table:
             return table.get(uuid)
         return None
 
+    def find_uuid(self, table, uuid):
+        """
+        Finds the row that in the table that matches the column's value
+        """
+        return self.filter(table, lambda x: x.get("_uuid").startswith(uuid))
+
     def find(self, table, column, value):
         """
-        (list): Finds the row that in the table that matches the column's value
+        Finds the row that in the table that matches the column's value
         """
         table = self._tables.get(table)
         if table:
@@ -105,12 +103,21 @@ class OVSDBParser(Parser):
 
     def filter(self, table, function):
         """
-        (list): Filters the table based on the given callable filter
+        Filters the table based on the given callable filter
         """
         table = self._tables.get(table)
         if table:
             return list(filter(function, table.values()))
         return []
+
+
+class OVSDBParser(OVSDBMixin, Parser):
+    """
+    Base class for Parsers that implement OVSDB instances
+    """
+
+    def __init__(self, *args, **kwargs):
+        super(OVSDBParser, self).__init__(*args, **kwargs)
 
 
 class OVSDBListParser(OVSDBParser):
@@ -146,6 +153,7 @@ class OVSDBListParser(OVSDBParser):
         super(OVSDBListParser, self).__init__(*args, **kwargs)
 
     def parse_content(self, content):
+        self._tables = dict()
         current_table = dict()
         current_table_name = ""
         current_uuid = ""
@@ -326,13 +334,6 @@ class OVSDBDumpParser(OVSDBParser):
             return data
 
 
-@parser(ovsdb_dump)
-class OVSVswitchDB(OVSDBListParser):
-    def __init__(self, *args, **kwargs):
-        super(OVSVswitchDB, self).__init__(*args, **kwargs)
-        self._name = "Open_vSwitch"
-
-
 class ovsdb_servers(object):
     """For each valid OVSDB connection found, creates a datasource that
     connects to such server and dumps all its content into a dictionary
@@ -462,12 +463,35 @@ class OVSDBClient:
 
     def _dump_tables(self):
         result = {}
-        for table in self.api.idl.tables.keys():
+        for table, rows in self.api.idl.tables.items():
             # Extract rows and placed them as
             # "tableName" : {
             #    "uuid" : { rowData }
             # }
+
             result[table] = {
-                str(row["_uuid"]): row for row in self.api.db_list(table).execute()
+                str(row["_uuid"]): self._process_row(row)
+                for row in self.api.db_list(table).execute()
             }
         return result
+
+    def _process_row(self, row):
+        """Ensure all of items are native types.
+        In practice this just means converting UUIDs to strings
+        """
+        for col, value in row.items():
+            if (
+                isinstance(value, list)
+                and len(value) > 0
+                and isinstance(value[0], uuid.UUID)
+            ):
+                row[col] = [str(uuid) for uuid in value]
+            elif (
+                isinstance(value, dict)
+                and len(value) > 0
+                and isinstance(list(value.values())[0], uuid.UUID)
+            ):
+                row[col] = {k: str(v) for k, v in value.items()}
+            elif isinstance(value, uuid.UUID):
+                row[col] = str(value)
+        return row
