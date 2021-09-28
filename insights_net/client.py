@@ -24,17 +24,21 @@ def kfind_command(models, name):
                 if hasattr(attr, 'is_cmd') and name == a_name:
                     # Evaluate the model
                     model_instance = getattr(models, model_name)
-                    return partial(attr, model_instance)
+                    if model_instance:
+                        return partial(attr, model_instance)
     return None
 
 def klist_commands(models):
     res = {}
-    for model_cls in models.values():
+    for model_name, model_cls in models.items():
         if hasattr(model_cls, 'has_commands'):
             for a_name in dir(model_cls):
                 attr = getattr(model_cls, a_name)
                 if hasattr(attr, 'is_cmd'):
-                    res[a_name] = attr.__doc__.strip()
+                    # Evaluate model to avoid returning commands of empty
+                    # models
+                    if getattr(models, model_name):
+                        res[a_name] = attr.__doc__.strip()
     return res
 
 def krun_command_models(models, name, *args, **kwargs):
@@ -86,19 +90,26 @@ def krun_command(name, *args, **kwargs):
 
         return self.__run(name, command)
 
-    def run_command(self, name, **kwargs):
+    def run_command(self, name, *args, **kwargs):
         """
         Run a command. Returns a dictionary indexed by archive name with the results
         """
-        command = "krun_command('{name}', {kwargs})".format(
-            name=name,
-            kwargs=",".join(
+        total_args = ",".join(
+            filter(
+                None,
                 [
-                    "=".join([key, self._prepare_arg(kwargs[key])])
-                    for key in kwargs.keys()
-                ]
-            ),
+                    "'{}'".format(name),
+                    ",".join([self._prepare_arg(arg) for arg in args]),
+                    ",".join(
+                        [
+                            "=".join([key, self._prepare_arg(kwargs[key])])
+                            for key in kwargs.keys()
+                        ]
+                    ),
+                ],
+            )
         )
+        command = "krun_command({total_args})".format(name=name, total_args=total_args)
         return self._run(name, command)
 
     def available(self):
