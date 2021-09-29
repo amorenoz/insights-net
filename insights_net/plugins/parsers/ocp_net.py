@@ -8,7 +8,7 @@ from insights.core.spec_factory import glob_file, RawFileProvider
 
 from insights_net.plugins.datasources import GZFileProvider
 from insights_net.plugins.parsers.ovsdb import OVSDBDumpParser
-from insights_net.plugins.parsers.ofctl import OVSOfctlFlows
+from insights_net.plugins.parsers.ovs import OVSOfctlDumpBase
 
 
 """
@@ -47,10 +47,11 @@ ocp_flows = glob_file("*/network_logs/*ofctl_dump_flows*")
 
 
 @parser(ocp_flows)
-class OCPOfclDumpFlows(OVSOfctlFlows):
+class OCPOfclDumpFlows(OVSOfctlDumpBase):
     def __init__(self, *args, **kwargs):
         super(OCPOfclDumpFlows, self).__init__(*args, **kwargs)
 
+    @property
     def hostname(self):
         return self._hostname
 
