@@ -62,7 +62,28 @@ Now, in another terminal, you can run insights-net to introspect the archives:
 
 `insights-net` has a plugin that supports extracting OVS, OVN NB and OVN SB information from a running ovsdb-server that serves such databases.
 
-TBC
+In order to use it, start an ovsdb-server you want to inspect (you might want to use the help of [ovs-offline](https://ovs-dbg.readthedocs.io/en/latest/ovs-offline.html)). **Note only unix-domain socket transport is supported.**
+
+Then, just add the directory where the socket file stored to the `insights shell` command line as another archive, e.g:
+
+
+    insights shell -k -p insights_net.plugins /var/run/openvswitch
+
+
+You can now examine the OVS or OVN databases using the insights-net command line:
+
+    insights-net ovs list {TABLE_NAME} [--list]
+
+or
+
+    insights-net ovn nb list {TABLE_NAME} [--list]
+
+or
+
+    insights-net ovn sb list {TABLE_NAME} [--list]
+
+Other commands (such as `insights-net find-ip`) will also process information from such OVSDB instances
+
 
 ## Example commands:
 
