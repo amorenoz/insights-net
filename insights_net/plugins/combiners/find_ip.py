@@ -15,8 +15,7 @@ from insights.core.plugins import combiner
 from insights_net.plugins.commands import CommandMetaClass, command
 from insights_net.plugins.parsers.ip import NetNsIpAddr, NetNsIpAddr, NetNsIpRoute
 from insights_net.plugins.parsers.ofctl import SosOvsOfctlFlows
-from insights_net.plugins.combiners.ovn import OVNNB, OVNSB
-from insights_net.plugins.combiners.import OVNNB, OVNSB
+from insights_net.plugins.combiners.ovn import OVNNB, OVNSB, OVS
 from insights_net.plugins.parsers.ocp import OCPPods, OCPServices, OCPNetConf
 from insights_net.plugins.parsers.ocp_net import OCPOfclDumpFlows
 
@@ -38,6 +37,7 @@ from insights_net.plugins.parsers.ocp_net import OCPOfclDumpFlows
         OCPOfclDumpFlows,
         OVNNB,
         OVNSB,
+        OVS,
         OCPPods,
         OCPServices,
         OCPNetConf,
@@ -67,6 +67,7 @@ class IPAddressInformation(metaclass=CommandMetaClass):
         ocp_ofctl,
         ovn_nb,
         ovn_sb,
+        ovs,
         pods,
         services,
         ocpnetconf,
@@ -83,9 +84,10 @@ class IPAddressInformation(metaclass=CommandMetaClass):
         self.nsipaddr = nsipaddr
         self.nsiproute = nsiproute
         self.ofctl = ofctl
-        self.ocp_ofcl = ocp_ofctl
+        self.ocp_ofctl = ocp_ofctl
         self.ovn_nb = ovn_nb
         self.ovn_sb = ovn_sb
+        self.ovs = ovs
         self.pods = pods
         self.services = services
         self.ocpnetconf = ocpnetconf
@@ -152,6 +154,11 @@ class IPAddressInformation(metaclass=CommandMetaClass):
         ovn_sb_matches = find_in_sb(ip_addr, self.ovn_sb)
         if ovn_sb_matches:
             result["sb"] = ovn_sb_matches
+
+        # Find in OVS
+        ovs_matches = find_in_ovs(ip_addr, self.ovs)
+        if ovs_matches:
+            result["ovs"] = ovs_matches
 
         # Find in OCP
         pods_matches = find_in_pods(ip_addr, self.pods)
@@ -535,13 +542,19 @@ SBFIELDS = {
     "Logical_Flow": {"match": regexp_value, "actions": regexp_value},
 }
 
+OVSFIELDS = {
+    "Open_vSwitch": {"external_ids": dict_regexp},
+    "Interface": {"options": dict_regexp},
+    "Port": {"external_ids": dict_regexp},
+    "Manager": {"target": regexp_value},
+}
 
 def find_in_nb(addr, ovndb):
     if not ovndb:
         return
     if isinstance(ovndb, list):
         ovndb = ovndb[0]
-    return find_in_ovn(addr, ovndb, NBFIELDS)
+    return find_in_ovsdb(addr, ovndb, NBFIELDS)
 
 
 def find_in_sb(addr, ovndb):
@@ -549,13 +562,20 @@ def find_in_sb(addr, ovndb):
         return
     if isinstance(ovndb, list):
         ovndb = ovndb[0]
-    return find_in_ovn(addr, ovndb, SBFIELDS)
+    return find_in_ovsdb(addr, ovndb, SBFIELDS)
+
+def find_in_ovs(addr, ovsdb):
+    if not ovsdb:
+        return
+    if isinstance(ovsdb, list):
+        ovsdb = ovsdb[0]
+    return find_in_ovsdb(addr, ovsdb, OVSFIELDS)
 
 
-def find_in_ovn(addr, ovndb, fields):
+def find_in_ovsdb(addr, ovsdb, fields):
     result = {}
     for name, matches in fields.items():
-        table = ovndb.table(name)
+        table = ovsdb.table(name)
         if not table:
             continue
         for uid, row in table.items():

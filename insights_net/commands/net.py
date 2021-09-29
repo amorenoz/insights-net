@@ -133,6 +133,16 @@ def print_results(data):
                 print_ofproto_flows(flows)
     print("")
 
+    ovs_matches = data.get("ovs")
+    if ovs_matches:
+        print("OpenvSwitch Configuration Matches")
+        print("----------------------------------")
+        for table, rows in ovs_matches.items():
+            print("   * Table {}".format(table))
+            print(tabulate(rows, headers="keys"))
+            print("")
+    print("")
+
     nb_matches = data.get("nb")
     if nb_matches:
         print("OVN North Bound Matches")
