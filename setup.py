@@ -16,7 +16,6 @@ requirements = [
     "rich",
     "ovsdbapp",
     "insights-core",
-    "tabulate",
 ]
 
 setup_requirements = [
