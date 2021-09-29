@@ -24,6 +24,7 @@ class OVNNBDump(OVSDBListParser):
         super(OVNNBDump, self).__init__(*args, **kwargs)
         self._name = "OVN_Northbound"
 
+
 @parser(ovn_sb_dump)
 class OVNSBDump(OVSDBListParser):
     def __init__(self, *args, **kwargs):
