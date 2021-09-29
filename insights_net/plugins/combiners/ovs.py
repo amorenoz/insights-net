@@ -4,9 +4,15 @@ OVN information can be obtained from lists, dumps or live database.
 Combine them all into a single combiner per database type
 """
 from insights.core.plugins import combiner
+from insights.parsers import SkipException
 
 from insights_net.plugins.commands import CommandMetaClass, command
-from insights_net.plugins.parsers.ovs import OVSDump, OVSLocal
+from insights_net.plugins.parsers.ovs import (
+    OVSDump,
+    OVSLocal,
+    OVSOfctlDump,
+    OVSOfctlShow,
+)
 from insights_net.plugins.parsers.ovsdb import OVSDBMixin
 
 
@@ -85,3 +91,59 @@ class OVSDBCombiner(OVSDBMixin):
 class OVS(OVSDBCombiner, metaclass=OVSDBCommandMetaClass, cmd_name="ovs"):
     def __init__(self, dump, local):
         super(OVS, self).__init__(dump, local, None)
+
+
+# Ofproto
+
+
+@combiner(OVSOfctlShow, OVSOfctlDump)
+class OVSOfproto(metaclass=CommandMetaClass):
+    """OVSOfproto groups all the Ofproto information in a single object
+    and exposes some commands
+    """
+
+    def __init__(self, shows, dumps):
+        self.bridges = {}
+        if len(shows) != len(dumps):
+            raise SkipException("Uncomplete data")
+
+        for show in shows:
+            if not self.bridges.get(show.bridge_name):
+                self.bridges[show.bridge_name] = {}
+
+            self.bridges[show.bridge_name]["show"] = show
+
+        for dump in dumps:
+            if not self.bridges.get(dump.bridge_name):
+                raise SkipException("Uncomplete data")
+
+            self.bridges[dump.bridge_name]["dump"] = dump
+
+    @command
+    def ofproto_summary(self):
+        """Return a summary of the ofproto information"""
+        return {
+            name: {"ports": bridge["show"].ports, "flows": bridge["dump"].flow_list.len}
+            for name, bridge in self.bridges
+        }
+
+    @command
+    def find_flows(self, expr):
+        """Find flows that match a certain expression (see ovs-dbg filtering)"""
+        return {
+            name: [str(f) for f in bridge["dump"].flow_list.find(expr)]
+            for name, bridge in self.bridges
+        }
+
+    @command
+    def show(self):
+        """Return the openflow information ('ofctl show')"""
+        return {name: bridge["show"] for name, bridge in self.bridges}
+
+    @command
+    def flows(self):
+        """Return all the openflow flows"""
+        return {
+            name: [str(f) for f in bridge["dump"].flow_list.flows]
+            for name, bridge in self.bridges
+        }
