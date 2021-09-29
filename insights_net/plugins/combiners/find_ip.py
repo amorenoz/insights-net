@@ -15,9 +15,10 @@ from insights.core.plugins import combiner
 from insights_net.plugins.commands import CommandMetaClass, command
 from insights_net.plugins.parsers.ip import NetNsIpAddr, NetNsIpAddr, NetNsIpRoute
 from insights_net.plugins.parsers.ofctl import SosOvsOfctlFlows
-from insights_net.plugins.parsers.ovn import OVNNBDump, OVNSBDump
+from insights_net.plugins.combiners.ovn import OVNNB, OVNSB
+from insights_net.plugins.combiners.import OVNNB, OVNSB
 from insights_net.plugins.parsers.ocp import OCPPods, OCPServices, OCPNetConf
-from insights_net.plugins.parsers.ocp_net import OCPOfclDumpFlows, OCPNB, OCPSB
+from insights_net.plugins.parsers.ocp_net import OCPOfclDumpFlows
 
 
 @combiner(
@@ -35,10 +36,8 @@ from insights_net.plugins.parsers.ocp_net import OCPOfclDumpFlows, OCPNB, OCPSB
         NetNsIpRoute,
         SosOvsOfctlFlows,
         OCPOfclDumpFlows,
-        OVNNBDump,
-        OVNSBDump,
-        OCPNB,
-        OCPSB,
+        OVNNB,
+        OVNSB,
         OCPPods,
         OCPServices,
         OCPNetConf,
@@ -68,8 +67,6 @@ class IPAddressInformation(metaclass=CommandMetaClass):
         ocp_ofctl,
         ovn_nb,
         ovn_sb,
-        ocp_nb,
-        ocp_sb,
         pods,
         services,
         ocpnetconf,
@@ -89,15 +86,13 @@ class IPAddressInformation(metaclass=CommandMetaClass):
         self.ocp_ofcl = ocp_ofctl
         self.ovn_nb = ovn_nb
         self.ovn_sb = ovn_sb
-        self.ocp_nb = ocp_nb
-        self.ocp_sb = ocp_sb
         self.pods = pods
         self.services = services
         self.ocpnetconf = ocpnetconf
 
     @command
     def find_ip(self, ip):
-        """Look for an IP address in all the available componentes"""
+        """Look for an IP address in all the available components"""
 
         ip_addr = ipaddress.ip_address(ip)
         result = dict()
@@ -150,11 +145,11 @@ class IPAddressInformation(metaclass=CommandMetaClass):
             result["ofctl"] = ofctl_matches
 
         # Find in OVN
-        ovn_nb_matches = find_in_nb(ip_addr, self.ovn_nb or self.ocp_nb)
+        ovn_nb_matches = find_in_nb(ip_addr, self.ovn_nb)
         if ovn_nb_matches:
             result["nb"] = ovn_nb_matches
 
-        ovn_sb_matches = find_in_sb(ip_addr, self.ovn_sb or self.ocp_sb)
+        ovn_sb_matches = find_in_sb(ip_addr, self.ovn_sb)
         if ovn_sb_matches:
             result["sb"] = ovn_sb_matches
 
