@@ -4,6 +4,7 @@ from rich.table import Table
 from rich.pretty import Pretty
 
 from insights_net.main import maincli
+from insights_net.commands.printing import print_table, print_archive_header
 
 # The following click commands only modify the attributes of ctx.
 # The command's logic will then use these commands to obtain the relevant data
@@ -22,12 +23,21 @@ def ovs(ctx):
 
 @ovs.command(name="list")
 @click.argument("table", required=False, nargs=1)
+@click.option(
+    "-l",
+    "--list",
+    "list_flag",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Show tables as lists of elements (useful if tables are too big)",
+)
 @click.pass_obj
-def ovs_list(ctx, table):
+def ovs_list(ctx, table, list_flag):
     """
     List the content of a OVS Table
     """
-    return list_cmd(ctx, table)
+    return list_cmd(ctx, table, tables_as_lists=list_flag)
 
 
 @ovs.command(name="get")
@@ -60,12 +70,21 @@ def nb(ctx):
 
 @nb.command(name="list")
 @click.argument("table", required=False, nargs=1)
+@click.option(
+    "-l",
+    "--list",
+    "list_flag",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Show tables as lists of elements (useful if tables are too big)",
+)
 @click.pass_obj
-def nb_list(ctx, table):
+def nb_list(ctx, table, list_flag):
     """
     List the content of a OVN NB Table
     """
-    return list_cmd(ctx, table)
+    return list_cmd(ctx, table, tables_as_lists=list_flag)
 
 
 @nb.command(name="get")
@@ -90,12 +109,21 @@ def sb(ctx):
 
 @sb.command(name="list")
 @click.argument("table", required=False, nargs=1)
+@click.option(
+    "-l",
+    "--list",
+    "list_flag",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Show tables as lists of elements (useful if tables are too big)",
+)
 @click.pass_obj
-def sb_list(ctx, table):
+def sb_list(ctx, table, list_flag):
     """
     List the content of a OVN SB Table
     """
-    return list_cmd(ctx, table)
+    return list_cmd(ctx, table, tables_as_lists=list_flag)
 
 
 @sb.command(name="get")
@@ -114,59 +142,63 @@ def sb_get(ctx, table, uuid):
 
 def get_cmd(ctx, table, uuid):
     data = ctx.client.run_command(ctx.cmd_find_uuid, table, uuid)
+    console = Console()
     if not data:
         print("No data")
         return
     for archive, host_data in data.items():
+        print_archive_header(console, "Archive: " + archive)
         if not host_data:
             print("No data")
-        console = Console()
-        console.print(host_data)
+        else:
+            console.print(host_data)
 
 
-def list_cmd(ctx, table):
+def list_cmd(ctx, table, tables_as_lists=False):
     """
     List the content of a DB Tabel
     """
+    console = Console()
     if not table:
         tables = ctx.client.run_command(ctx.cmd_table_list)
         if not tables:
-            print("No data")
+            console.print("No data")
             return
 
         for archive, host_data in tables.items():
-            print("Archive: " + archive)
-            print("*" * (9 + len(archive)))
+            print_archive_header(console, "Archive: " + archive)
 
             if not host_data:
-                print("No data")
-                continue
-
-            if isinstance(host_data, str):
-                print(host_data)
+                console.print("No data")
+            elif isinstance(host_data, str):
+                console.print(host_data)
             else:
-                console = Console()
                 console.print("Available Tables:")
                 console.print(host_data)
         return
 
     table_data = ctx.client.run_command(ctx.cmd_table, table)
     if not table_data:
-        print("No data")
+        console.print("No data")
         return
 
     for archive, host_data in table_data.items():
-        print("Archive: " + archive)
-        print("*" * (9 + len(archive)))
+        print_archive_header(console, "Archive: " + archive)
         if not host_data:
-            print("No data")
+            console.print("No data")
             continue
         if isinstance(host_data, str):
-            print(host_data)
+            console.print(host_data)
         else:
-            print_results(host_data, table)
+            print_table(
+                console,
+                list(host_data.values()),
+                table,
+                tables_as_lists=tables_as_lists,
+            )
 
 
+## TODO; replace with printing.py common code
 def print_results(table_data, table):
     console = Console()
     tt = Table(title=table)
