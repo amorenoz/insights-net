@@ -32,25 +32,30 @@ def host(ctx):
 def print_results(console, data):
     console.print("[bold]HostName:[/bold] {}".format(data.get("hostname")))
     rh_ver = data.get("version")
-    console.print("[bold]Red Hat Version:[/bold]")
-    console.print("  [bold]Product:[/bold] {}".format(rh_ver.get("product")))
-    console.print("  [bold]Version:[/bold] {}".format(rh_ver.get("version")))
-    console.print("  [bold]Code Name:[/bold] {}".format(rh_ver.get("code_name")))
+    if rh_ver and isinstance(rh_ver, dict):
+        console.print("[bold]Red Hat Version:[/bold]")
+        console.print("  [bold]Product:[/bold] {}".format(rh_ver.get("product")))
+        console.print("  [bold]Version:[/bold] {}".format(rh_ver.get("version")))
+        console.print("  [bold]Code Name:[/bold] {}".format(rh_ver.get("code_name")))
 
     uname = data.get("uname")
-    console.print("[bold]Kernel:[/bold]")
-    console.print("  [bold]Version :[/bold] {}".format(uname.get("version")))
-    console.print("  [bold]Release:[/bold] {}".format(uname.get("release")))
-    console.print("  [bold]Arch:[/bold] {}".format(uname.get("arch")))
+    if uname and isinstance(rh_ver, dict):
+        console.print("[bold]Kernel:[/bold]")
+        console.print("  [bold]Version :[/bold] {}".format(uname.get("version")))
+        console.print("  [bold]Release:[/bold] {}".format(uname.get("release")))
+        console.print("  [bold]Arch:[/bold] {}".format(uname.get("arch")))
 
     up = data.get("uptime")
-    console.print(
-        "[bold]Uptime for {} days {} hh:[/bold]mm".format(
-            up.get("updays"), up.get("uphhmm")
+    if up and isinstance(up, dict):
+        console.print(
+            "[bold]Uptime for {} days {} hh:[/bold]mm".format(
+                up.get("updays"), up.get("uphhmm")
+            )
         )
-    )
 
-    console.print(
-        "[bold]Selinux:[/bold] {}".format(data.get("selinux").get("selinux_status"))
-    )
+    sel = data.get("selinux")
+    if sel and isinstance(sel, dict):
+        console.print(
+            "[bold]Selinux:[/bold] {}".format(data.get("selinux").get("selinux_status"))
+        )
     console.print("")
