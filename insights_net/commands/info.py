@@ -1,6 +1,9 @@
 import click
+from rich.console import Console
+from rich.columns import Columns
 
 from insights_net.main import maincli
+from insights_net.commands.printing import print_section_header, print_archive_header
 
 
 @maincli.command(name="info")
@@ -14,34 +17,27 @@ def info(ctx):
         print("Command not found")
         return
 
+    console = Console()
     for archive, host_data in data.items():
         if not host_data:
             continue
 
-        print("Archive: " + archive)
-        print("*" * (9 + len(archive)))
+        print_archive_header(console, "Archive: " + archive)
         if isinstance(host_data, str):
-            print(host_data)
+            console.print(host_data)
         else:
-            print_results(host_data)
+            print_results(console, host_data)
             print("")
 
 
-def print_results(data):
+def print_results(console, data):
     if data.get("models"):
-        print("Available Models")
-        print("----------------")
+        print_section_header(console, "Available Models")
         models = data.get("models")
-        # Print in 3 columns
-        maxlen = len(max(models, key=len)) + 4
-        fmt = "{{:<{len}}}{{:<{len}}}{{:<}}".format(len=maxlen)
-        for a, b, c in zip(models[::3], models[1::3], models[2::3]):
-            print(fmt.format(a, b, c))
-
-        print("")
+        console.print(Columns(models, equal=True, expand=True))
+        console.print("")
 
     if data.get("commands"):
-        print("Available Commands")
-        print("------------------")
+        print_section_header(console, "Available Commands")
         for cmd in data.get("commands"):
-            print("  {}".format(cmd))
+            console.print("  {}".format(cmd))

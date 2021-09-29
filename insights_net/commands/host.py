@@ -1,6 +1,8 @@
 import click
+from rich.console import Console
 
 from insights_net.main import maincli
+from insights_net.commands.printing import print_archive_header
 
 
 @maincli.command(name="host")
@@ -14,34 +16,41 @@ def host(ctx):
         print("Command not found")
         return
 
+    console = Console()
+
     for archive, host_data in data.items():
         if not host_data:
             continue
 
-        print("Archive: " + archive)
-        print("*" * (9 + len(archive)))
+        print_archive_header(console, archive)
         if isinstance(host_data, str):
-            print(host_data)
+            console.print(host_data)
         else:
-            print_results(host_data)
+            print_results(console, host_data)
 
 
-def print_results(data):
-    print("HostName: {}".format(data.get("hostname")))
+def print_results(console, data):
+    console.print("[bold]HostName:[/bold] {}".format(data.get("hostname")))
     rh_ver = data.get("version")
-    print("Red Hat Version:")
-    print("  Product: {}".format(rh_ver.get("product")))
-    print("  Version: {}".format(rh_ver.get("version")))
-    print("  Code Name: {}".format(rh_ver.get("code_name")))
+    console.print("[bold]Red Hat Version:[/bold]")
+    console.print("  [bold]Product:[/bold] {}".format(rh_ver.get("product")))
+    console.print("  [bold]Version:[/bold] {}".format(rh_ver.get("version")))
+    console.print("  [bold]Code Name:[/bold] {}".format(rh_ver.get("code_name")))
 
     uname = data.get("uname")
-    print("Kernel:")
-    print("  Version : {}".format(uname.get("version")))
-    print("  Release: {}".format(uname.get("release")))
-    print("  Arch: {}".format(uname.get("arch")))
+    console.print("[bold]Kernel:[/bold]")
+    console.print("  [bold]Version :[/bold] {}".format(uname.get("version")))
+    console.print("  [bold]Release:[/bold] {}".format(uname.get("release")))
+    console.print("  [bold]Arch:[/bold] {}".format(uname.get("arch")))
 
     up = data.get("uptime")
-    print("Uptime for {} days {} hh:mm".format(up.get("updays"), up.get("uphhmm")))
+    console.print(
+        "[bold]Uptime for {} days {} hh:[/bold]mm".format(
+            up.get("updays"), up.get("uphhmm")
+        )
+    )
 
-    print("Selinux: {}".format(data.get("selinux").get("selinux_status")))
-    print("")
+    console.print(
+        "[bold]Selinux:[/bold] {}".format(data.get("selinux").get("selinux_status"))
+    )
+    console.print("")
