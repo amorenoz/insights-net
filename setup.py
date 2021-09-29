@@ -47,9 +47,7 @@ setup(
     long_description=readme,
     include_package_data=True,
     name="insights-net",
-    packages=find_packages(
-        include=["insights_net", "insights_net.commands", "insights_net.plugins"]
-    ),
+    packages=find_packages(include=["insights_net*"]),
     setup_requires=setup_requirements,
     scripts=["bin/insights-net"],
     test_suite="tests",

@@ -28,39 +28,45 @@ extract information from it. For more details about `insights shell`, visit the
 Run `insights shell` on kernel-mode ("-k" or "--kernel") on the archives you want to analyze and specify the load insights-net plugins:
 
 
-    $ insights shell -k  -p insights_net.plugins samples/ovn/sosreport-compute-0-2021-06-03-awkezkh samples/ovn/sosreport-controller-0-2021-06-03-qjzsrnv 
+    $ insights shell -k  -p insights_net.plugins samples/ovn/sosreport-compute-0-2021-06-03-awkezkh samples/ovn/sosreport-controller-0-2021-06-03-qjzsrnv
     NOTE: When using the `ipython kernel` entry point, Ctrl-C will not work.
-    
+
     To exit, you will have to explicitly quit this process, by either sending
     "quit" from a client, or using Ctrl-\ in UNIX-like environments.
-    
+
     To read more about this, see https://github.com/ipython/ipython/issues/2049
-    
-    
+
+
     To connect another client to this kernel, use:
         --existing kernel-3973772.json
 
 
 Now, in another terminal, you can run insights-net to introspect the archives:
 
-    $ insights-net 
+    $ insights-net
     Usage: insights-net [OPTIONS] COMMAND [ARGS]...
-    
+
     Options:
       -v, --verbose  Be verbose
       --help         Show this message and exit.
-    
+
     Commands:
       find-ip  Get all the available information regarding an IP(v4/6) address
       host     Show basic host information
       info     Show basic information of the archives
       ovn      Show the OVN configuration
       stop     Stop the background running insights kernel
-    
+
+
+## Extracting data from running running OVSDB servers
+
+`insights-net` has a plugin that supports extracting OVS, OVN NB and OVN SB information from a running ovsdb-server that serves such databases.
+
+TBC
 
 ## Example commands:
 
-Dump a brief summary of the host information:   
+Dump a brief summary of the host information:
 
     $ insights-net host
     Archive: samples/ovn/sosreport-compute-0-2021-06-03-awkezkh
@@ -76,7 +82,7 @@ Dump a brief summary of the host information:
       Arch: x86_64
     Uptime for 1 days 19:45 hh:mm
     Selinux: enabled
-    
+
     Archive: samples/ovn/sosreport-controller-0-2021-06-03-qjzsrnv
     **************************************************************
     HostName: controller-0.redhat.local
@@ -95,15 +101,15 @@ Dump a brief summary of the host information:
 Find IP address information:
 
 
-    $ insights-net find-ip 172.17.1.85 
-    Archive: samples/ovn/sosreport-compute-0-2021-06-03-awkezkh                                                                                                                                                                                                                       
-    ***********************************************************                                                                                                                                                                                                                       
-    Neighbor Matches                                                                                                                                                                                                                                                                  
-    ----------------                                                                                                                                                                                                                                                                  
-      Address: 172.17.1.85                                                                                                                                                                                                                                                            
-      Device: vlan20                                                                                                                                                                                                                                                                  
-      LLAdr: 9e:9f:65:95:53:34                                                                                                                                                                                                                                                        
-      Reachibility: REACHABLE       
+    $ insights-net find-ip 172.17.1.85
+    Archive: samples/ovn/sosreport-compute-0-2021-06-03-awkezkh
+    ***********************************************************
+    Neighbor Matches
+    ----------------
+      Address: 172.17.1.85
+      Device: vlan20
+      LLAdr: 9e:9f:65:95:53:34
+      Reachibility: REACHABLE
     ...
 
 

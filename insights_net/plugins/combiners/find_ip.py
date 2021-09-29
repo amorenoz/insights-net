@@ -12,12 +12,12 @@ from insights.parsers.iptables import (
 from insights.parsers.netstat import Netstat
 from insights.core.plugins import combiner
 
-from .commands import CommandMetaClass, command
-from .ip import NetNsIpAddr, NetNsIpAddr, NetNsIpRoute
-from .ofctl import SosOvsOfctlFlows
-from .ovn import OVNNBDump, OVNSBDump
-from .ocp import OCPPods, OCPServices, OCPNetConf
-from .ocp_net import OCPOfclDumpFlows, OCPNB, OCPSB
+from insights_net.plugins.commands import CommandMetaClass, command
+from insights_net.plugins.parsers.ip import NetNsIpAddr, NetNsIpAddr, NetNsIpRoute
+from insights_net.plugins.parsers.ofctl import SosOvsOfctlFlows
+from insights_net.plugins.parsers.ovn import OVNNBDump, OVNSBDump
+from insights_net.plugins.parsers.ocp import OCPPods, OCPServices, OCPNetConf
+from insights_net.plugins.parsers.ocp_net import OCPOfclDumpFlows, OCPNB, OCPSB
 
 
 @combiner(
@@ -542,7 +542,6 @@ SBFIELDS = {
 
 
 def find_in_nb(addr, ovndb):
-    result = {}
     if not ovndb:
         return
     if isinstance(ovndb, list):
@@ -551,7 +550,6 @@ def find_in_nb(addr, ovndb):
 
 
 def find_in_sb(addr, ovndb):
-    result = {}
     if not ovndb:
         return
     if isinstance(ovndb, list):
