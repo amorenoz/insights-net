@@ -16,7 +16,7 @@ requirements = [
     "rich",
     "ovsdbapp",
     "insights-core",
-    "ovs-dbg>=0.0.10"
+    "ovs-dbg>=0.0.10",
 ]
 
 setup_requirements = [
@@ -45,6 +45,7 @@ setup(
     install_requires=requirements,
     license="Apache Software License 2.0",
     long_description=readme,
+    long_description_content_type="text/markdown",
     include_package_data=True,
     name="insights-net",
     packages=find_packages(include=["insights_net*"]),
