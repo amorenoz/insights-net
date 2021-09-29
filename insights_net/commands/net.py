@@ -4,6 +4,9 @@ from rich.console import Console
 from rich.text import Text
 from rich.panel import Panel
 from rich.emoji import Emoji
+from rich.style import Style
+from ovs_dbg.ofp import OFPFlow
+from ovs_dbg.filter import OFFilter
 
 from insights_net.main import maincli
 
@@ -151,21 +154,22 @@ def print_results(console, data, tables_as_lists=False):
         for bridge in ofctl_matches.keys():
             flows = ofctl_matches.get(bridge)
             if flows:
+                parsed_flows = [OFPFlow.from_string(f) for f in flows]
                 print_section_header(
                     console, "Ofproto flow Matches on bridge {}".format(bridge)
                 )
                 console.print("")
 
-                drops = list(
-                    filter(lambda x: {"action": "drop"} in x["actions"], flows)
-                )
+                drop_filter = OFFilter("drop")
+
+                drops = list(filter(drop_filter.evaluate, parsed_flows))
 
                 if drops:
-                    console.print("DROPS:")
+                    console.print("[bold] DROPS:[/bold]")
                     print_ofproto_flows(console, drops)
 
-                console.print("ALL FLOWS:")
-                print_ofproto_flows(console, flows)
+                console.print("[bold] ALL FLOWS:[/bold]")
+                print_ofproto_flows(console, parsed_flows)
         console.print("")
 
     ovs_matches = data.get("ovs")
@@ -245,8 +249,13 @@ def print_results(console, data, tables_as_lists=False):
 
 
 def print_ofproto_flows(console, flows):
-    for table in set([flow["match"].get("table") for flow in flows]):
+    """
+    Args:
+        console (rich.Console) console to print
+        flows (list[OFPFlow]): list of flows to print
+    """
+    for table in set([flow.info.get("table") for flow in flows]):
         console.print("   * Table {}".format(table))
-        for flow in filter(lambda f: f["match"].get("table") == table, flows):
-            console.print("     {}".format(flow.get("raw")))
+        for flow in filter(lambda f: f.info.get("table") == table, flows):
+            console.print(Text("      {} ".format(str(flow)), style=Style()))
     console.print("")

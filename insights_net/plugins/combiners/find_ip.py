@@ -14,8 +14,9 @@ from insights.core.plugins import combiner
 
 from insights_net.plugins.commands import CommandMetaClass, command
 from insights_net.plugins.parsers.ip import NetNsIpAddr, NetNsIpAddr, NetNsIpRoute
-from insights_net.plugins.parsers.ofctl import SosOvsOfctlFlows
-from insights_net.plugins.combiners.ovn import OVNNB, OVNSB, OVS
+
+from insights_net.plugins.combiners.ovn import OVNNB, OVNSB
+from insights_net.plugins.combiners.ovs import OVS, OVSOfctlDump
 from insights_net.plugins.parsers.ocp import OCPPods, OCPServices, OCPNetConf
 from insights_net.plugins.parsers.ocp_net import OCPOfclDumpFlows
 
@@ -33,7 +34,7 @@ from insights_net.plugins.parsers.ocp_net import OCPOfclDumpFlows
         Netstat,
         NetNsIpAddr,
         NetNsIpRoute,
-        SosOvsOfctlFlows,
+        OVSOfctlDump,
         OCPOfclDumpFlows,
         OVNNB,
         OVNSB,
@@ -445,24 +446,46 @@ def find_in_ofctl(addr, ofctls):
     if not ofctls:
         return
 
+    fields = [
+        "tun_src",
+        "tun_dst",
+        "tun_ipv6_src",
+        "tun_ipv6_dst",
+        "ct_nw_src",
+        "ct_nw_dst",
+        "ct_ipv6_src",
+        "ct_ipv6_dst",
+        "ip_src",
+        "nw_src",
+        "ip_dst",
+        "nw_dst",
+        "ipv6_src",
+        "ipv6_dst",
+        "arp_spa",
+        "arp_tpa",
+        "nd_target",
+    ]
+    base_actions = [
+        "mod_nw_dst",
+        "mod_nw_src",
+    ]
+    actions = base_actions
+    actions.extend(["learn.{}".format(field) for field in fields])
+    actions.extend(["clone.{}".format(act) for act in base_actions])
+    actions.extend(["ct.nat.addrs.start", "ct.nat.addrs.end"])
+    ## FIXME: Bundle and multipath missing
+
+    all_fields = fields + actions
+
+    expr = " or ".join(
+        ["{field}~={ip}".format(field=field, ip=str(addr)) for field in all_fields]
+    )
+
     result = {}
     for ofctl in ofctls:
         if not ofctl:
             continue
-        flows = []
-        for flow in ofctl.flow_dumps:
-            for match, value in flow.get("match").items():
-                # TODO: search on match fields that we know there might be
-                # IP addresses
-                if _compare_ip_or_net(addr, value):
-                    flows.append(flow)
-
-            for action in flow.get("actions"):
-                # TODO: search on actions params that we know there might be
-                # IP addresses
-                if _compare_ip_or_net(addr, action.get("params")):
-                    flows.append(flow)
-
+        flows = [str(f) for f in ofctl.flow_list.find(expr)]
         if flows:
             result[ofctl.bridge_name] = flows
 
@@ -549,6 +572,7 @@ OVSFIELDS = {
     "Manager": {"target": regexp_value},
 }
 
+
 def find_in_nb(addr, ovndb):
     if not ovndb:
         return
@@ -563,6 +587,7 @@ def find_in_sb(addr, ovndb):
     if isinstance(ovndb, list):
         ovndb = ovndb[0]
     return find_in_ovsdb(addr, ovndb, SBFIELDS)
+
 
 def find_in_ovs(addr, ovsdb):
     if not ovsdb:
