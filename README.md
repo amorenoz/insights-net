@@ -15,7 +15,11 @@ After cloning the repository, create a venv and install the tool
 
     $ python -m venv venv && . ./venv/bin/activate
 
-Install the tool:
+Install the tool using pip:
+
+    $ pip install insights-net
+
+Or install the tool from the repository directly:
 
     $ (venv) pip install .
 
@@ -55,6 +59,7 @@ Now, in another terminal, you can run insights-net to introspect the archives:
       host     Show basic host information
       info     Show basic information of the archives
       ovn      Show the OVN configuration
+      ovs      Show the OVS configuration
       stop     Stop the background running insights kernel
 
 
@@ -70,7 +75,69 @@ Then, just add the directory where the socket file stored to the `insights shell
     insights shell -k -p insights_net.plugins /var/run/openvswitch
 
 
-You can now examine the OVS or OVN databases using the insights-net command line:
+You can now examine the OVS or OVN databases using the insights-net command line (see [Available commands(#available-commands))
+
+Other commands (such as `insights-net find-ip`) will also process information from such OVSDB instances
+
+
+## Available commands:
+
+### host: Dump a brief summary of the host information:
+Example output:
+
+
+```
+ $ insights-net host
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                  📜 Archive: /home/amorenoz/devel/sosreports/ovn/sosreport-compute-0-2021-06-03-awkezkh/ 📜                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+HostName: compute-0.redhat.local
+Red Hat Version:
+  Product: Red Hat Enterprise Linux
+  Version: 8.2
+  Code Name: Ootpa
+Kernel:
+  Version : 4.18.0
+  Release: 193.51.1.el8_2
+  Arch: x86_64
+Uptime for 1 days 19:45 hh:mm
+Selinux: enabled
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                 📜 Archive: /home/amorenoz/devel/sosreports/ovn/sosreport-controller-0-2021-06-03-qjzsrnv 📜                 │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+HostName: controller-0.redhat.local
+Red Hat Version:
+  Product: Red Hat Enterprise Linux
+  Version: 8.2
+  Code Name: Ootpa
+Kernel:
+  Version : 4.18.0
+  Release: 193.51.1.el8_2
+  Arch: x86_64
+Uptime for 1 days 19:57 hh:mm
+Selinux: enabled
+
+```
+
+
+### find-ip: Find IP address information:
+It looks in the following logs to find information about the IP Address:
+
+- Interface addresses (utput of "ip addr")
+- Routes (output of "ip route")
+- Neighbours (output of "ip neigh")
+- Hosts (content of "/etc/hosts")
+- Iptables
+- Netstat (output of "ss" or "netstat")
+- OVS Flow dumps (output of "ovs-ofctl dump-flows")
+- OVN NB and SB databases
+- OCP Pods, Services and Configuration
+
+
+### ovs | ovn: Inspect the OVS and OVN database
+It supports printing the tables and finding elements by UUID:
+
 
     insights-net ovs list {TABLE_NAME} [--list]
 
@@ -81,57 +148,6 @@ or
 or
 
     insights-net ovn sb list {TABLE_NAME} [--list]
-
-Other commands (such as `insights-net find-ip`) will also process information from such OVSDB instances
-
-
-## Example commands:
-
-Dump a brief summary of the host information:
-
-    $ insights-net host
-    Archive: samples/ovn/sosreport-compute-0-2021-06-03-awkezkh
-    ****************************    *******************************
-    HostName: compute-0.redhat.local
-    Red Hat Version:
-      Product: Red Hat Enterprise Linux
-      Version: 8.2
-      Code Name: Ootpa
-    Kernel:
-      Version : 4.18.0
-      Release: 193.51.1.el8_2
-      Arch: x86_64
-    Uptime for 1 days 19:45 hh:mm
-    Selinux: enabled
-
-    Archive: samples/ovn/sosreport-controller-0-2021-06-03-qjzsrnv
-    **************************************************************
-    HostName: controller-0.redhat.local
-    Red Hat Version:
-      Product: Red Hat Enterprise Linux
-      Version: 8.2
-      Code Name: Ootpa
-    Kernel:
-      Version : 4.18.0
-      Release: 193.51.1.el8_2
-      Arch: x86_64
-    Uptime for 1 days 19:57 hh:mm
-    Selinux: enabled
-
-
-Find IP address information:
-
-
-    $ insights-net find-ip 172.17.1.85
-    Archive: samples/ovn/sosreport-compute-0-2021-06-03-awkezkh
-    ***********************************************************
-    Neighbor Matches
-    ----------------
-      Address: 172.17.1.85
-      Device: vlan20
-      LLAdr: 9e:9f:65:95:53:34
-      Reachibility: REACHABLE
-    ...
 
 
 ## Contribute
