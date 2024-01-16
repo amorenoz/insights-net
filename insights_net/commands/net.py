@@ -5,8 +5,8 @@ from rich.text import Text
 from rich.panel import Panel
 from rich.emoji import Emoji
 from rich.style import Style
-from ovs_dbg.ofp import OFPFlow
-from ovs_dbg.filter import OFFilter
+from ovs.flow.ofp import OFPFlow
+from ovs.flow.filter import OFFilter
 
 from insights_net.main import maincli
 

@@ -16,7 +16,7 @@ requirements = [
     "rich",
     "ovsdbapp",
     "insights-core",
-    "ovs-dbg>=0.0.10",
+    "ovs[flow]",
 ]
 
 setup_requirements = [
